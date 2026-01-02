@@ -1,13 +1,37 @@
-/* Reset and global styles */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700&family=Lato:wght@400;700&display=swap');
+
+:root {
+  --primary-color: #4a6cf7;
+  --primary-hover: #3b5bdb;
+  --secondary-color: #6a994e;
+  --danger-color: #ff6b6b;
+  --text-main: #1e293b;
+  --text-regular: #475569;
+  --text-secondary: #94a3b8;
+  --bg-color: #f4f6f8;
+  --card-bg: #ffffff;
+  --border-color: #e2e8f0;
+}
 
 html, body {
   margin: 0;
   padding: 0;
   width: 100%;
   height: 100%;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-family: 'Lato', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  background-color: var(--bg-color);
+  color: var(--text-regular);
+  line-height: 1.5;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Inter', sans-serif;
+  color: var(--text-main);
+  font-weight: 700;
+  margin-top: 0;
+  margin-bottom: 0.5em;
 }
 
 #app {
@@ -21,11 +45,52 @@ html, body {
 
 a {
   text-decoration: none;
-  color: inherit;
+  color: var(--primary-color);
+  transition: color 0.3s ease;
+  
+  &:hover {
+    color: var(--primary-hover);
+  }
 }
 
 ul, ol {
   list-style: none;
   padding: 0;
   margin: 0;
+}
+
+/* Animations */
+.fade-in {
+  animation: fadeIn 0.5s ease-out forwards;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Element Plus Theme Overrides */
+:root {
+  --el-color-primary: #4a6cf7;
+  --el-color-success: #6a994e;
+  --el-color-danger: #ff6b6b;
+  --el-text-color-primary: #1e293b;
+  --el-text-color-regular: #475569;
+  --el-text-color-secondary: #94a3b8;
+  --el-bg-color: #ffffff;
+  --el-bg-color-page: #f4f6f8;
+  --el-border-radius-base: 6px;
+}
+
+/* Global Utility Classes */
+.card-shadow {
+  background: var(--card-bg);
+  border-radius: 8px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
 }

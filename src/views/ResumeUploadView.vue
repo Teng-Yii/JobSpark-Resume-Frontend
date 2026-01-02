@@ -1,63 +1,97 @@
 <template>
-  <div class="resume-upload-container">
-    <el-card class="upload-card">
-      <template #header>
-        <div class="card-header">
-          <span>上传简历</span>
-        </div>
-      </template>
-      <div class="upload-content">
-        <el-upload
-          class="upload-dragger"
-          drag
-          action="#"
-          :auto-upload="false"
-          :limit="1"
-          :on-change="handleFileChange"
-          accept=".pdf,.docx"
-        >
-          <el-icon class="el-icon--upload"><upload-filled /></el-icon>
-          <div class="el-upload__text">
-            拖拽文件到此处或 <em>点击上传</em>
-          </div>
-          <template #tip>
-            <div class="el-upload__tip">
-              只能上传 pdf/docx 文件，且不超过 5MB
+  <div class="page-container">
+    <div class="content-wrapper fade-in">
+      <div class="page-header">
+        <h1 class="page-title">上传简历</h1>
+        <p class="page-subtitle">上传您的 PDF 或 DOCX 格式简历进行解析</p>
+      </div>
+      
+      <div class="upload-card card-shadow">
+        <div class="upload-area-wrapper">
+          <el-upload
+            class="upload-dragger-custom"
+            drag
+            action="#"
+            :auto-upload="false"
+            :limit="1"
+            :on-change="handleFileChange"
+            :show-file-list="false"
+            accept=".pdf,.docx"
+          >
+            <div class="upload-placeholder">
+              <el-icon class="upload-icon" :class="{ 'has-file': selectedFile }">
+                <component :is="selectedFile ? 'DocumentChecked' : 'UploadFilled'" />
+              </el-icon>
+              
+              <div class="upload-text" v-if="!selectedFile">
+                <h3>点击或拖拽文件到此处上传</h3>
+                <p>支持 PDF / DOCX 格式 (最大 5MB)</p>
+              </div>
+              
+              <div class="file-info" v-else>
+                <div class="file-details">
+                  <span class="file-name">{{ selectedFile.name }}</span>
+                  <span class="file-size">{{ (selectedFile.size / 1024 / 1024).toFixed(2) }} MB</span>
+                </div>
+                <div class="file-status">文件已就绪</div>
+              </div>
             </div>
-          </template>
-        </el-upload>
+          </el-upload>
+        </div>
         
-        <div v-if="uploadStatus !== 'IDLE'" class="status-container">
+        <!-- Progress Bar -->
+        <div v-if="uploadStatus !== 'IDLE'" class="progress-section">
+          <div class="progress-info">
+            <span class="status-text">系统状态: {{ statusText }}</span>
+            <span class="progress-text">{{ progress }}%</span>
+          </div>
           <el-progress 
             :percentage="progress" 
             :status="progressStatus"
+            :stroke-width="8"
+            :show-text="false"
           />
-          <p class="status-text">{{ statusText }}</p>
         </div>
 
-        <div class="actions">
-          <el-button type="primary" @click="handleUpload" :loading="loading" :disabled="!selectedFile">
-            开始解析
+        <div class="card-footer">
+          <el-button
+            v-if="uploadStatus !== 'COMPLETED'"
+            type="primary"
+            size="large"
+            @click="handleUpload"
+            :loading="loading"
+            :disabled="!selectedFile || uploadStatus === 'PROCESSING'"
+            class="action-button"
+          >
+            {{ uploadStatus === 'FAILED' ? '重新上传' : '开始智能解析' }}
+          </el-button>
+          
+          <el-button
+            v-else
+            type="success"
+            size="large"
+            @click="router.push('/resume/optimize')"
+            class="action-button"
+          >
+            开始智能优化
           </el-button>
         </div>
       </div>
-    </el-card>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { UploadFilled } from '@element-plus/icons-vue'
+import { UploadFilled, DocumentChecked } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import type { UploadFile } from 'element-plus'
 import { uploadResume, getTaskStatus } from '@/api/resume'
 import { useResumeStore } from '@/stores/resume'
-import { useUserStore } from '@/stores/user'
 
 const router = useRouter()
 const resumeStore = useResumeStore()
-const userStore = useUserStore()
 
 const selectedFile = ref<File | null>(null)
 const loading = ref(false)
@@ -68,9 +102,9 @@ let pollingTimer: ReturnType<typeof setInterval> | null = null
 const statusText = computed(() => {
   switch (uploadStatus.value) {
     case 'UPLOADING': return '正在上传...'
-    case 'PROCESSING': return '正在智能解析简历内容...'
-    case 'COMPLETED': return '解析完成！正在跳转...'
-    case 'FAILED': return '处理失败，请重试'
+    case 'PROCESSING': return '正在智能解析...'
+    case 'COMPLETED': return '解析完成'
+    case 'FAILED': return '上传失败'
     default: return ''
   }
 })
@@ -84,21 +118,24 @@ const progressStatus = computed(() => {
 const handleFileChange = (uploadFile: UploadFile) => {
   if (uploadFile.raw) {
     const isLimit = uploadFile.raw.size / 1024 / 1024 < 5
-    // 简单的类型检查，实际可能需要根据后缀
     const fileName = uploadFile.name.toLowerCase()
     const isExt = fileName.endsWith('.pdf') || fileName.endsWith('.docx')
 
     if (!isExt) {
-      ElMessage.error('上传文件只能是 PDF 或 DOCX 格式!')
+      ElMessage.error('格式无效，仅支持 PDF 或 DOCX。')
       selectedFile.value = null
       return
     }
     if (!isLimit) {
-      ElMessage.error('上传文件大小不能超过 5MB!')
+      ElMessage.error('文件过大，最大支持 5MB。')
       selectedFile.value = null
       return
     }
     selectedFile.value = uploadFile.raw
+    if (uploadStatus.value === 'FAILED' || uploadStatus.value === 'COMPLETED') {
+        uploadStatus.value = 'IDLE'
+        progress.value = 0
+    }
   }
 }
 
@@ -110,30 +147,23 @@ const pollTaskStatus = async (taskId: string) => {
       
       if (status === 'PROCESSING') {
         uploadStatus.value = 'PROCESSING'
-        // 模拟进度增加，实际可能后端返回
-        if (progress.value < 90) {
-          progress.value += 5
+        if (res.progress !== undefined) {
+          progress.value = res.progress
         }
       } else if (status === 'COMPLETED') {
         if (pollingTimer) clearInterval(pollingTimer)
         uploadStatus.value = 'COMPLETED'
         progress.value = 100
+        loading.value = false
         
-        // 保存 resumeId 并跳转
         if (res.result && res.result.resumeId) {
             resumeStore.setResumeId(res.result.resumeId)
-            // 如果有解析内容也可以保存
             if (res.result.content) {
                resumeStore.setResumeContent(res.result.content)
             }
-            ElMessage.success('简历解析成功')
-            setTimeout(() => {
-              router.push('/resume/optimize')
-            }, 1000)
+            ElMessage.success('解析成功')
         } else {
-             // 兜底，如果没有返回 resumeId，可能需要重新获取或报错
-             // 这里假设一定有
-             ElMessage.warning('解析完成但未获取到简历ID')
+             ElMessage.warning('解析完成但 ID 丢失')
         }
       } else if (status === 'FAILED') {
         if (pollingTimer) clearInterval(pollingTimer)
@@ -143,7 +173,6 @@ const pollTaskStatus = async (taskId: string) => {
       }
     } catch (error) {
       console.error('Polling error', error)
-      // 轮询出错不一定要立刻停止，可以容错几次，这里简单处理
     }
   }, 2000)
 }
@@ -157,75 +186,185 @@ const handleUpload = async () => {
   
   const formData = new FormData()
   formData.append('file', selectedFile.value)
-  // 如果需要 userMessage 或 userId，可以从 store 获取添加
-  // formData.append('userId', userStore.userId)
   
   try {
     const res = await uploadResume(formData)
-    // 假设上传成功后返回 taskId
-    // 如果直接返回了结果（同步处理），则直接完成
     if (res.taskId) {
         uploadStatus.value = 'PROCESSING'
         progress.value = 30
         pollTaskStatus(res.taskId)
     } else if (res.resumeId) {
-        // 同步返回的情况
         uploadStatus.value = 'COMPLETED'
         progress.value = 100
+        loading.value = false
         resumeStore.setResumeId(res.resumeId)
-        ElMessage.success('简历上传成功')
-        router.push('/resume/optimize')
+        ElMessage.success('上传成功')
     }
   } catch (error) {
     console.error(error)
     uploadStatus.value = 'FAILED'
     loading.value = false
-    ElMessage.error('上传失败')
+    ElMessage.error('上传失败，请重试。')
   }
 }
 </script>
 
 <style scoped lang="scss">
-.resume-upload-container {
+.page-container {
+  min-height: 100vh;
+  background-color: var(--bg-color);
+  padding: 40px 20px;
   display: flex;
   justify-content: center;
-  align-items: center;
-  min-height: calc(100vh - 60px); // Adjust based on layout
-  padding: 20px;
-  background-color: #f5f7fa;
+  align-items: flex-start;
+}
 
-  .upload-card {
-    width: 100%;
-    max-width: 600px;
+.content-wrapper {
+  width: 100%;
+  max-width: 800px;
+  margin-top: 40px;
+}
+
+.page-header {
+  text-align: center;
+  margin-bottom: 40px;
+  
+  .page-title {
+    font-size: 2rem;
+    color: var(--text-main);
+    margin-bottom: 10px;
   }
+  
+  .page-subtitle {
+    color: var(--text-secondary);
+    font-size: 1.1rem;
+  }
+}
 
-  .upload-content {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 20px;
+.upload-card {
+  background: #fff;
+  padding: 40px;
+}
+
+.upload-area-wrapper {
+  margin-bottom: 30px;
+  
+  :deep(.el-upload) {
+    width: 100%;
     
-    .upload-dragger {
+    .el-upload-dragger {
       width: 100%;
+      height: 280px;
+      border: 2px dashed var(--border-color);
+      border-radius: 12px;
+      background-color: #fafafa;
+      transition: all 0.3s ease;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      
+      &:hover, &.is-dragover {
+        border-color: var(--primary-color);
+        background-color: rgba(74, 108, 247, 0.02);
+        
+        .upload-icon {
+          color: var(--primary-color);
+          transform: translateY(-5px);
+        }
+      }
     }
   }
+}
 
-  .status-container {
-    width: 100%;
-    text-align: center;
-    margin-top: 10px;
+.upload-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  
+  .upload-icon {
+    font-size: 64px;
+    color: #cbd5e1;
+    margin-bottom: 20px;
+    transition: all 0.3s ease;
     
-    .status-text {
-      margin-top: 5px;
-      color: #606266;
-      font-size: 14px;
+    &.has-file {
+      color: var(--secondary-color);
     }
   }
   
-  .actions {
-    width: 100%;
+  .upload-text {
+    h3 {
+      font-size: 1.1rem;
+      color: var(--text-main);
+      margin-bottom: 8px;
+      font-weight: 600;
+    }
+    
+    p {
+      color: var(--text-secondary);
+      font-size: 0.9rem;
+    }
+  }
+  
+  .file-info {
+    text-align: center;
+    
+    .file-details {
+      margin-bottom: 8px;
+    }
+    
+    .file-name {
+      font-weight: 600;
+      color: var(--text-main);
+      margin-right: 10px;
+      font-size: 1.1rem;
+    }
+    
+    .file-size {
+      color: var(--text-secondary);
+      font-size: 0.9rem;
+      background: #f1f5f9;
+      padding: 2px 8px;
+      border-radius: 4px;
+    }
+    
+    .file-status {
+      color: var(--secondary-color);
+      font-weight: 500;
+    }
+  }
+}
+
+.progress-section {
+  margin-bottom: 30px;
+  background: #f8fafc;
+  padding: 20px;
+  border-radius: 8px;
+  
+  .progress-info {
     display: flex;
-    justify-content: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    
+    .status-text {
+      color: var(--text-main);
+    }
+    
+    .progress-text {
+      color: var(--primary-color);
+    }
+  }
+}
+
+.card-footer {
+  display: flex;
+  justify-content: center;
+  
+  .action-button {
+    min-width: 200px;
+    font-weight: 600;
   }
 }
 </style>
