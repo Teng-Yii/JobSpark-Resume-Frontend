@@ -2,43 +2,55 @@ import request from './request'
 
 // 简历上传响应
 export interface ResumeUploadAsyncResponse {
+  success: boolean
   taskId: string
-  resumeId?: string
-  message: string
+  fileName: string
+  originalFileName: string;
+  errorMessage: string;
+  message: string;
+  timestamp: number // int64
 }
 
 // 任务状态响应
 export interface TaskStatusResponse {
   taskId: string
-  status: 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED'
-  progress?: number
-  result?: any // 根据实际情况定义，如果是 COMPLETED，可能包含 resumeId 或其他信息
-  error?: string
+  status: string
+  statusMessage: string
+  progress: number // int32
+  startTime: string // date-time
+  completeTime: string // date-time
+  resumeId: number // int64
+  errorMessage: string
+  fileName: string
+  originalFileName: string
+  estimatedRemainingSeconds: number // int64
 }
 
 // 简历优化请求参数
 export interface ResumeOptimizeRequest {
+  userId: number // int64
   resumeId: string
   jobDescription: string
-  // 其他可能需要的参数，如模型选择等
 }
 
-// 优化建议项
-export interface OptimizationSuggestion {
-  id: string
-  originalText?: string
-  optimizedText: string
-  reason: string
-  type: string // 如 'format', 'content', 'grammar'
+// 优化记录
+export interface OptimizationRecord {
+  feedback: string
+  score: number // double
 }
 
 // 简历优化响应
 export interface ResumeOptimizedResponse {
-  resumeId: string
-  score: number
-  suggestions: OptimizationSuggestion[]
-  summary: string
-  optimizedContent?: string // 完整的优化后内容
+  suggestionText: string
+  optimizedResumeId: number // int64
+  optimizationHistory: OptimizationRecord[]
+}
+
+// 简历优化下载请求
+export interface ResumeOptimizedDownloadRequest {
+  userId: number // int64
+  optimizedResumeId: number // int64
+  downloadFileType: string
 }
 
 // 嵌入向量存储响应
