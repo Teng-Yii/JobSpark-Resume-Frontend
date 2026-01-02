@@ -37,8 +37,12 @@ service.interceptors.response.use(
       // 处理特定错误码，如 401 token 失效
       if (code === 401) {
         const userStore = useUserStore()
-        userStore.logout()
-        router.push('/login')
+        // 401 表示 token 失效，此时无需调用后端 logout，直接清除本地状态即可
+        userStore.clearLoginState()
+        // 避免在登录页重复跳转
+        if (router.currentRoute.value.path !== '/login') {
+          router.push('/login')
+        }
       }
       return Promise.reject(new Error(msg || 'Error'))
     }
@@ -58,8 +62,12 @@ service.interceptors.response.use(
         message = '未授权，请登录'
         // Token 过期或未登录，强制登出
         const userStore = useUserStore()
-        userStore.logout()
-        router.push('/login')
+        // 401 表示 token 失效，此时无需调用后端 logout，直接清除本地状态即可
+        userStore.clearLoginState()
+        // 避免在登录页重复跳转
+        if (router.currentRoute.value.path !== '/login') {
+          router.push('/login')
+        }
         break
       case 403:
         message = '拒绝访问'

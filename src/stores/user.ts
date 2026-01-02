@@ -51,6 +51,12 @@ export const useUserStore = defineStore('user', () => {
     }
   }
 
+  const clearLoginState = () => {
+    token.value = null
+    userInfo.value = null
+    localStorage.removeItem('token')
+  }
+
   const fetchUserInfo = async () => {
     try {
       const res = await getUserInfoApi()
@@ -69,6 +75,7 @@ export const useUserStore = defineStore('user', () => {
     setToken,
     setUserInfo,
     logout,
+    clearLoginState,
     login,
     fetchUserInfo
   }

@@ -39,7 +39,7 @@ const handleLogin = async (formEl: FormInstance | undefined) => {
           password: form.password
         })
         ElMessage.success('登录成功，欢迎回来')
-        router.push('/')
+        router.push('/home')
       } catch (error: any) {
         console.error(error)
       } finally {
