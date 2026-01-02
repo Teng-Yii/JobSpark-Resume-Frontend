@@ -97,9 +97,13 @@ const selectedFile = ref<File | null>(null)
 const loading = ref(false)
 const progress = ref(0)
 const uploadStatus = ref<'IDLE' | 'UPLOADING' | 'PROCESSING' | 'COMPLETED' | 'FAILED'>('IDLE')
+const currentStatusMessage = ref('')
 let pollingTimer: ReturnType<typeof setInterval> | null = null
 
 const statusText = computed(() => {
+  if (uploadStatus.value === 'PROCESSING' && currentStatusMessage.value) {
+    return currentStatusMessage.value
+  }
   switch (uploadStatus.value) {
     case 'UPLOADING': return '正在上传...'
     case 'PROCESSING': return '正在智能解析...'
@@ -135,32 +139,35 @@ const handleFileChange = (uploadFile: UploadFile) => {
     if (uploadStatus.value === 'FAILED' || uploadStatus.value === 'COMPLETED') {
         uploadStatus.value = 'IDLE'
         progress.value = 0
+        currentStatusMessage.value = ''
     }
   }
 }
 
 const pollTaskStatus = async (taskId: string) => {
+  if (pollingTimer) clearInterval(pollingTimer)
+  
   pollingTimer = setInterval(async () => {
     try {
       const res = await getTaskStatus(taskId)
       const status = res.status
+
+      // 实时更新进度和状态消息
+      if (typeof res.progress === 'number') {
+        progress.value = res.progress
+      }
+      if (res.statusMessage) {
+        currentStatusMessage.value = res.statusMessage
+      }
       
-      if (status === 'PROCESSING') {
-        uploadStatus.value = 'PROCESSING'
-        if (res.progress !== undefined) {
-          progress.value = res.progress
-        }
-      } else if (status === 'COMPLETED') {
+      if (status === 'COMPLETED') {
         if (pollingTimer) clearInterval(pollingTimer)
         uploadStatus.value = 'COMPLETED'
         progress.value = 100
         loading.value = false
         
-        if (res.result && res.result.resumeId) {
-            resumeStore.setResumeId(res.result.resumeId)
-            if (res.result.content) {
-               resumeStore.setResumeContent(res.result.content)
-            }
+        if (res.resumeId) {
+            resumeStore.setResumeId(res.resumeId)
             ElMessage.success('解析成功')
         } else {
              ElMessage.warning('解析完成但 ID 丢失')
@@ -168,8 +175,12 @@ const pollTaskStatus = async (taskId: string) => {
       } else if (status === 'FAILED') {
         if (pollingTimer) clearInterval(pollingTimer)
         uploadStatus.value = 'FAILED'
-        ElMessage.error(res.error || '解析失败')
+        ElMessage.error(res.errorMessage || '解析失败')
         loading.value = false
+      } else {
+        // 其他状态（ANALYZING, PENDING, PROCESSING 等）继续轮询
+        // 只要不是完成或失败，都视为处理中
+        uploadStatus.value = 'PROCESSING'
       }
     } catch (error) {
       console.error('Polling error', error)
@@ -182,6 +193,7 @@ const handleUpload = async () => {
   
   loading.value = true
   progress.value = 0
+  currentStatusMessage.value = ''
   uploadStatus.value = 'UPLOADING'
   
   const formData = new FormData()
@@ -191,7 +203,7 @@ const handleUpload = async () => {
     const res = await uploadResume(formData)
     if (res.taskId) {
         uploadStatus.value = 'PROCESSING'
-        progress.value = 30
+        progress.value = 0
         pollTaskStatus(res.taskId)
     } else if (res.resumeId) {
         uploadStatus.value = 'COMPLETED'
