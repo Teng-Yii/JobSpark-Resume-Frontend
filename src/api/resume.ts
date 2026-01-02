@@ -50,7 +50,7 @@ export interface EmbeddingResponse {
 // 简历上传
 export function uploadResume(data: FormData) {
   return request<any, ResumeUploadAsyncResponse>({
-    url: '/api/v1/resumes/upload',
+    url: '/resumes/upload',
     method: 'post',
     data,
     headers: {
@@ -62,7 +62,7 @@ export function uploadResume(data: FormData) {
 // 获取任务状态
 export function getTaskStatus(taskId: string) {
   return request<any, TaskStatusResponse>({
-    url: `/api/v1/resumes/task/${taskId}/status`,
+    url: `/resumes/task/${taskId}/status`,
     method: 'get'
   })
 }
@@ -70,7 +70,7 @@ export function getTaskStatus(taskId: string) {
 // 简历优化
 export function optimizeResume(data: ResumeOptimizeRequest) {
   return request<any, ResumeOptimizedResponse>({
-    url: '/api/v1/resumes/optimize',
+    url: '/resumes/optimize',
     method: 'post',
     data
   })
@@ -79,7 +79,7 @@ export function optimizeResume(data: ResumeOptimizeRequest) {
 // 存储 Embedding
 export function storeEmbedding(resumeId: string) {
   return request<any, EmbeddingResponse>({
-    url: `/api/v1/resumes/${resumeId}/embedding`,
+    url: `/resumes/${resumeId}/embedding`,
     method: 'post'
   })
 }
