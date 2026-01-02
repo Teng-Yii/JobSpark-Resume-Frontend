@@ -43,10 +43,10 @@
         <div v-if="uploadStatus !== 'IDLE'" class="progress-section">
           <div class="progress-info">
             <span class="status-text">系统状态: {{ statusText }}</span>
-            <span class="progress-text">{{ progress }}%</span>
+            <span class="progress-text">{{ Math.floor(progress) }}%</span>
           </div>
-          <el-progress 
-            :percentage="progress" 
+          <el-progress
+            :percentage="Number(progress.toFixed(1))"
             :status="progressStatus"
             :stroke-width="8"
             :show-text="false"
@@ -82,7 +82,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { UploadFilled, DocumentChecked } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
@@ -96,9 +96,11 @@ const resumeStore = useResumeStore()
 const selectedFile = ref<File | null>(null)
 const loading = ref(false)
 const progress = ref(0)
+const targetProgress = ref(0) // 目标进度（后端返回的最新有效进度）
 const uploadStatus = ref<'IDLE' | 'UPLOADING' | 'PROCESSING' | 'COMPLETED' | 'FAILED'>('IDLE')
 const currentStatusMessage = ref('')
 let pollingTimer: ReturnType<typeof setInterval> | null = null
+let animationFrameId: number | null = null
 
 const statusText = computed(() => {
   if (uploadStatus.value === 'PROCESSING' && currentStatusMessage.value) {
@@ -139,9 +141,50 @@ const handleFileChange = (uploadFile: UploadFile) => {
     if (uploadStatus.value === 'FAILED' || uploadStatus.value === 'COMPLETED') {
         uploadStatus.value = 'IDLE'
         progress.value = 0
+        targetProgress.value = 0
+        if (animationFrameId) cancelAnimationFrame(animationFrameId)
         currentStatusMessage.value = ''
     }
   }
+}
+
+// 启动平滑进度动画
+const startProgressAnimation = () => {
+  if (animationFrameId) cancelAnimationFrame(animationFrameId)
+  
+  const animate = () => {
+    // 如果已完成，快速逼近 100%
+    if (uploadStatus.value === 'COMPLETED') {
+      if (progress.value < 100) {
+        const step = (100 - progress.value) * 0.2
+        progress.value += Math.max(step, 0.5) // 最小增量确保能到达
+        if (progress.value > 99.5) progress.value = 100
+      }
+    } else if (uploadStatus.value === 'PROCESSING' || uploadStatus.value === 'UPLOADING') {
+      // 1. 追赶后端返回的目标进度 (Catch up)
+      if (progress.value < targetProgress.value) {
+        const dist = targetProgress.value - progress.value
+        const speed = Math.max(dist * 0.05, 0.1) // 调整速度系数，使其更平滑
+        progress.value = Math.min(progress.value + speed, targetProgress.value)
+      }
+      // 2. 伪进度 (Pseudo progress): 如果当前已达到目标，但还没完成，缓慢增加给用户反馈
+      // 增加到 99% 的阈值，给予用户持续的反馈，但速度极慢
+      else if (progress.value < 99) {
+        progress.value += 0.01 // 约每秒增加 0.6% (60fps)，非常缓慢
+      }
+    }
+    
+    // 边界检查，非完成状态下不超过 99%
+    if (uploadStatus.value !== 'COMPLETED' && progress.value >= 99) {
+      progress.value = 99
+    }
+
+    if (uploadStatus.value !== 'FAILED' && (uploadStatus.value !== 'COMPLETED' || progress.value < 100)) {
+      animationFrameId = requestAnimationFrame(animate)
+    }
+  }
+  
+  animationFrameId = requestAnimationFrame(animate)
 }
 
 const pollTaskStatus = async (taskId: string) => {
@@ -154,8 +197,13 @@ const pollTaskStatus = async (taskId: string) => {
 
       // 实时更新进度和状态消息
       if (typeof res.progress === 'number') {
-        progress.value = res.progress
+        // 单调性保证：只取较大值，避免进度回退
+        // 只有当新进度大于当前目标进度时才更新
+        if (res.progress > targetProgress.value) {
+            targetProgress.value = res.progress
+        }
       }
+      
       if (res.statusMessage) {
         currentStatusMessage.value = res.statusMessage
       }
@@ -163,7 +211,7 @@ const pollTaskStatus = async (taskId: string) => {
       if (status === 'COMPLETED') {
         if (pollingTimer) clearInterval(pollingTimer)
         uploadStatus.value = 'COMPLETED'
-        progress.value = 100
+        targetProgress.value = 100 // 确保目标进度设为 100
         loading.value = false
         
         if (res.resumeId) {
@@ -193,8 +241,10 @@ const handleUpload = async () => {
   
   loading.value = true
   progress.value = 0
+  targetProgress.value = 0
   currentStatusMessage.value = ''
   uploadStatus.value = 'UPLOADING'
+  startProgressAnimation() // 启动动画循环
   
   const formData = new FormData()
   formData.append('file', selectedFile.value)
@@ -203,10 +253,10 @@ const handleUpload = async () => {
     const res = await uploadResume(formData)
     if (res.taskId) {
         uploadStatus.value = 'PROCESSING'
-        progress.value = 0
         pollTaskStatus(res.taskId)
     } else if (res.resumeId) {
         uploadStatus.value = 'COMPLETED'
+        targetProgress.value = 100
         progress.value = 100
         loading.value = false
         resumeStore.setResumeId(res.resumeId)
@@ -219,6 +269,11 @@ const handleUpload = async () => {
     ElMessage.error('上传失败，请重试。')
   }
 }
+
+onUnmounted(() => {
+  if (pollingTimer) clearInterval(pollingTimer)
+  if (animationFrameId) cancelAnimationFrame(animationFrameId)
+})
 </script>
 
 <style scoped lang="scss">
