@@ -215,7 +215,7 @@ const pollTaskStatus = async (taskId: string) => {
         loading.value = false
         
         if (res.resumeId) {
-            resumeStore.setResumeId(res.resumeId)
+            resumeStore.setResumeId(String(res.resumeId))
             ElMessage.success('解析成功')
         } else {
              ElMessage.warning('解析完成但 ID 丢失')
@@ -251,22 +251,57 @@ const handleUpload = async () => {
   
   try {
     const res = await uploadResume(formData)
+    
+    // 根据 success 字段判断接口是否成功
+    if (!res.success) {
+      // 接口返回失败
+      // 停止进度动画
+      if (animationFrameId) {
+        cancelAnimationFrame(animationFrameId)
+        animationFrameId = null
+      }
+      // 重置状态
+      uploadStatus.value = 'IDLE'
+      progress.value = 0
+      targetProgress.value = 0
+      currentStatusMessage.value = ''
+      loading.value = false
+      
+      // 显示后端返回的错误信息
+      const errorMessage = res.errorMessage || res.message || '上传失败，请重试。'
+      ElMessage.error(errorMessage)
+      return
+    }
+    
+    // 接口返回成功
     if (res.taskId) {
         uploadStatus.value = 'PROCESSING'
         pollTaskStatus(res.taskId)
-    } else if (res.resumeId) {
+    } else {
+        // 如果后端直接返回成功（同步处理），但这种情况不太可能
         uploadStatus.value = 'COMPLETED'
         targetProgress.value = 100
         progress.value = 100
         loading.value = false
-        resumeStore.setResumeId(res.resumeId)
         ElMessage.success('上传成功')
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error(error)
-    uploadStatus.value = 'FAILED'
+    // 停止进度动画
+    if (animationFrameId) {
+      cancelAnimationFrame(animationFrameId)
+      animationFrameId = null
+    }
+    // 重置状态
+    uploadStatus.value = 'IDLE'
+    progress.value = 0
+    targetProgress.value = 0
+    currentStatusMessage.value = ''
     loading.value = false
-    ElMessage.error('上传失败，请重试。')
+    
+    // 显示错误信息（网络错误或其他异常）
+    const errorMessage = error?.response?.data?.errorMessage || error?.response?.data?.message || error?.message || '上传失败，请重试。'
+    ElMessage.error(errorMessage)
   }
 }
 
