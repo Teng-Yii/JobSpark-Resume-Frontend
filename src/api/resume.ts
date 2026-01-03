@@ -19,7 +19,7 @@ export interface TaskStatusResponse {
   progress: number // int32
   startTime: string // date-time
   completeTime: string // date-time
-  resumeId: number // int64
+  resumeId: string
   errorMessage: string
   fileName: string
   originalFileName: string

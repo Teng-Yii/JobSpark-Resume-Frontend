@@ -55,46 +55,44 @@
 
               <!-- Result Section -->
               <div v-if="optimizationResult" class="result-container fade-in">
-                <div class="score-card">
+                <!-- 显示最新评分 -->
+                <div v-if="optimizationResult.optimizationHistory && optimizationResult.optimizationHistory.length > 0" class="score-card">
                   <div class="score-ring-wrapper">
                     <el-progress 
                       type="dashboard" 
-                      :percentage="optimizationResult.score" 
+                      :percentage="Math.round(optimizationResult.optimizationHistory[optimizationResult.optimizationHistory.length - 1].score)" 
                       :color="scoreColors"
                       :width="100"
                       :stroke-width="8"
                     />
                   </div>
                   <div class="score-info">
-                    <div class="score-value">{{ optimizationResult.score }}</div>
+                    <div class="score-value">{{ optimizationResult.optimizationHistory[optimizationResult.optimizationHistory.length - 1].score.toFixed(1) }}</div>
                     <div class="score-label">简历评分</div>
                   </div>
                 </div>
                 
+                <!-- 显示优化建议文本 -->
                 <div class="suggestions-list">
                   <h3 class="subsection-title">优化建议</h3>
                   
-                  <div
-                    v-for="(item, index) in optimizationResult.suggestions"
-                    :key="index"
-                    class="suggestion-item"
-                  >
-                    <div class="suggestion-header">
-                      <span class="suggestion-index">#{{ index + 1 }}</span>
-                      <el-tag size="small" :type="getTypeColor(item.type)">{{ item.type }}</el-tag>
-                    </div>
-                    
-                    <p class="suggestion-reason">{{ item.reason }}</p>
-                    
-                    <div class="comparison-box">
-                      <div class="compare-row original">
-                        <div class="compare-label">原文</div>
-                        <div class="compare-content">{{ item.originalText }}</div>
+                  <div class="suggestion-text-content">
+                    <pre class="suggestion-text">{{ optimizationResult.suggestionText }}</pre>
+                  </div>
+                  
+                  <!-- 历史评分记录 -->
+                  <div v-if="optimizationResult.optimizationHistory && optimizationResult.optimizationHistory.length > 1" class="history-section">
+                    <h4 class="history-title">历史评分</h4>
+                    <div
+                      v-for="(record, index) in optimizationResult.optimizationHistory"
+                      :key="index"
+                      class="history-item"
+                    >
+                      <div class="history-header">
+                        <span class="history-index">第 {{ index + 1 }} 次</span>
+                        <el-tag size="small" type="info">评分: {{ record.score.toFixed(1) }}</el-tag>
                       </div>
-                      <div class="compare-row improved">
-                        <div class="compare-label">建议修改</div>
-                        <div class="compare-content">{{ item.optimizedText }}</div>
-                      </div>
+                      <p class="history-feedback">{{ record.feedback }}</p>
                     </div>
                   </div>
                 </div>
@@ -114,9 +112,11 @@ import { ElMessage } from 'element-plus'
 import type { ResumeOptimizedResponse } from '@/api/resume'
 import { optimizeResume } from '@/api/resume'
 import { useResumeStore } from '@/stores/resume'
+import { useUserStore } from '@/stores/user'
 
 const router = useRouter()
 const resumeStore = useResumeStore()
+const userStore = useUserStore()
 
 const loading = ref(false)
 const optimizing = ref(false)
@@ -146,8 +146,8 @@ onMounted(() => {
   }
 })
 
-const getTypeColor = (type: string) => {
-  const map: Record<string, string> = {
+const getTypeColor = (type: string): 'primary' | 'success' | 'warning' | 'info' | 'danger' => {
+  const map: Record<string, 'primary' | 'success' | 'warning' | 'info' | 'danger'> = {
     'content': 'primary',
     'format': 'warning',
     'keyword': 'success',
@@ -163,22 +163,32 @@ const handleOptimize = async () => {
   }
   
   if (!resumeStore.currentResumeId) {
-     ElMessage.error('简历 ID 丢失')
+     ElMessage.error('简历 ID 丢失，请重新上传简历')
+     router.push('/resume/upload')
      return
+  }
+  
+  if (!userStore.userInfo?.id) {
+    ElMessage.error('用户信息丢失，请重新登录')
+    router.push('/login')
+    return
   }
 
   optimizing.value = true
   try {
     const res = await optimizeResume({
+      userId: Number(userStore.userInfo.id),
       resumeId: resumeStore.currentResumeId,
       jobDescription: jobDescription.value
     })
     
     optimizationResult.value = res
     ElMessage.success('优化完成')
-  } catch (error) {
-    console.error(error)
-    ElMessage.error('优化失败，请重试')
+  } catch (error: any) {
+    // 优先显示后端返回的具体错误信息
+    const errorMessage = error.errorMessage || error.response?.data?.message || error.response?.data?.msg || error.message || '优化失败，请重试'
+    ElMessage.error(errorMessage)
+    console.error('优化失败:', error)
   } finally {
     optimizing.value = false
   }
@@ -350,79 +360,68 @@ const handleOptimize = async () => {
     margin-bottom: 20px;
     color: var(--text-main);
   }
-}
-
-.suggestion-item {
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  padding: 20px;
-  margin-bottom: 20px;
-  transition: all 0.2s;
   
-  &:hover {
-    border-color: #cbd5e1;
-    box-shadow: 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  .suggestion-text-content {
+    margin-bottom: 30px;
   }
   
-  .suggestion-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 10px;
-    
-    .suggestion-index {
-      font-weight: 700;
-      color: var(--text-secondary);
-      font-size: 0.9rem;
-    }
-  }
-  
-  .suggestion-reason {
-    font-size: 0.95rem;
-    color: var(--text-main);
-    margin-bottom: 15px;
-    font-weight: 500;
-  }
-  
-  .comparison-box {
+  .suggestion-text {
     background-color: #f8fafc;
-    border-radius: 6px;
-    overflow: hidden;
-    font-size: 0.9rem;
+    padding: 20px;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    font-family: inherit;
+    font-size: 0.95rem;
+    line-height: 1.6;
+    color: var(--text-main);
+    margin: 0;
+  }
+  
+  .history-section {
+    margin-top: 30px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border-color);
+  }
+  
+  .history-title {
+    font-size: 1rem;
+    margin-bottom: 15px;
+    color: var(--text-main);
+  }
+  
+  .history-item {
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 15px;
+    background-color: #fafafa;
+    transition: all 0.2s;
     
-    .compare-row {
+    &:hover {
+      border-color: #cbd5e1;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    }
+    
+    .history-header {
       display: flex;
-      padding: 12px 15px;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
       
-      &.original {
-        border-bottom: 1px solid rgba(0,0,0,0.05);
-        background-color: #fff5f5;
-        
-        .compare-label { color: var(--danger-color); }
-        .compare-content { text-decoration: line-through; opacity: 0.7; }
-      }
-      
-      &.improved {
-        background-color: #f0f9eb;
-        
-        .compare-label { color: var(--secondary-color); }
-      }
-      
-      .compare-label {
-        width: 80px;
-        flex-shrink: 0;
+      .history-index {
         font-weight: 600;
-        font-size: 0.8rem;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        padding-top: 2px;
+        color: var(--text-secondary);
+        font-size: 0.9rem;
       }
-      
-      .compare-content {
-        flex: 1;
-        line-height: 1.5;
-        color: var(--text-regular);
-      }
+    }
+    
+    .history-feedback {
+      font-size: 0.9rem;
+      color: var(--text-main);
+      margin: 0;
+      line-height: 1.5;
     }
   }
 }
