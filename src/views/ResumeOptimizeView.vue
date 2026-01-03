@@ -74,25 +74,75 @@
                 
                 <!-- 显示优化建议文本 -->
                 <div class="suggestions-list">
-                  <h3 class="subsection-title">优化建议</h3>
+                  <h3 class="subsection-title">📋 优化建议详情</h3>
                   
-                  <div class="suggestion-text-content">
-                    <pre class="suggestion-text">{{ optimizationResult.suggestionText }}</pre>
+                  <div class="suggestion-structured-content">
+                    <!-- 优势亮点 -->
+                    <div v-if="parsedSuggestion.advantages" class="suggestion-section advantage-section">
+                      <div class="section-header">
+                        <span class="section-icon">✨</span>
+                        <h4 class="section-title">优势亮点</h4>
+                      </div>
+                      <ul class="suggestion-list">
+                        <li v-for="(item, idx) in parsedSuggestion.advantages" :key="idx" class="suggestion-item success-item">
+                          <span class="item-number">{{ idx + 1 }}</span>
+                          <span class="item-text">{{ item }}</span>
+                        </li>
+                      </ul>
+                    </div>
+                    
+                    <!-- 不足之处 -->
+                    <div v-if="parsedSuggestion.weaknesses" class="suggestion-section weakness-section">
+                      <div class="section-header">
+                        <span class="section-icon">⚠️</span>
+                        <h4 class="section-title">不足之处</h4>
+                      </div>
+                      <ul class="suggestion-list">
+                        <li v-for="(item, idx) in parsedSuggestion.weaknesses" :key="idx" class="suggestion-item warning-item">
+                          <span class="item-number">{{ idx + 1 }}</span>
+                          <span class="item-text">{{ item }}</span>
+                        </li>
+                      </ul>
+                    </div>
+                    
+                    <!-- 改进建议 -->
+                    <div v-if="parsedSuggestion.improvements" class="suggestion-section improvement-section">
+                      <div class="section-header">
+                        <span class="section-icon">💡</span>
+                        <h4 class="section-title">改进建议</h4>
+                      </div>
+                      <ul class="suggestion-list">
+                        <li v-for="(item, idx) in parsedSuggestion.improvements" :key="idx" class="suggestion-item primary-item">
+                          <span class="item-number">{{ idx + 1 }}</span>
+                          <span class="item-text">{{ item }}</span>
+                        </li>
+                      </ul>
+                    </div>
+                    
+                    <!-- 如果解析失败，显示原始文本 -->
+                    <div v-if="!parsedSuggestion.advantages && !parsedSuggestion.weaknesses && !parsedSuggestion.improvements" class="suggestion-text-fallback">
+                      <pre class="suggestion-text">{{ optimizationResult.suggestionText }}</pre>
+                    </div>
                   </div>
                   
                   <!-- 历史评分记录 -->
                   <div v-if="optimizationResult.optimizationHistory && optimizationResult.optimizationHistory.length > 1" class="history-section">
-                    <h4 class="history-title">历史评分</h4>
+                    <h4 class="history-section-title">📊 历史评分记录</h4>
                     <div
                       v-for="(record, index) in optimizationResult.optimizationHistory"
                       :key="index"
                       class="history-item"
                     >
                       <div class="history-header">
-                        <span class="history-index">第 {{ index + 1 }} 次</span>
-                        <el-tag size="small" type="info">评分: {{ record.score.toFixed(1) }}</el-tag>
+                        <div class="history-left">
+                          <span class="history-badge">{{ index + 1 }}</span>
+                          <span class="history-label">第 {{ index + 1 }} 次优化</span>
+                        </div>
+                        <el-tag size="small" :type="getScoreTagType(record.score)">评分: {{ record.score.toFixed(1) }}</el-tag>
                       </div>
-                      <p class="history-feedback">{{ record.feedback }}</p>
+                      <div class="history-feedback">
+                        {{ record.feedback }}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -106,7 +156,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import type { ResumeOptimizedResponse } from '@/api/resume'
@@ -154,6 +204,63 @@ const getTypeColor = (type: string): 'primary' | 'success' | 'warning' | 'info' 
   return map[type.toLowerCase()] || 'info'
 }
 
+// 解析优化建议文本
+const parsedSuggestion = computed(() => {
+  if (!optimizationResult.value?.suggestionText) {
+    return { advantages: null, weaknesses: null, improvements: null }
+  }
+  
+  const text = optimizationResult.value.suggestionText
+  const result: { advantages: string[] | null, weaknesses: string[] | null, improvements: string[] | null } = {
+    advantages: null,
+    weaknesses: null,
+    improvements: null
+  }
+  
+  // 解析优势亮点
+  const advantagesIndex = text.indexOf('优势亮点')
+  const weaknessesIndex = text.indexOf('不足之处')
+  const improvementsIndex = text.indexOf('改进建议')
+  
+  if (advantagesIndex !== -1) {
+    const endIndex = weaknessesIndex !== -1 ? weaknessesIndex : (improvementsIndex !== -1 ? improvementsIndex : text.length)
+    const advantagesText = text.substring(advantagesIndex, endIndex)
+    result.advantages = advantagesText
+      .split(/\d+\.\s+/)
+      .filter(item => item.trim() && !item.includes('优势亮点'))
+      .map(item => item.replace(/;$/, '').trim())
+  }
+  
+  // 解析不足之处
+  if (weaknessesIndex !== -1) {
+    const endIndex = improvementsIndex !== -1 ? improvementsIndex : text.length
+    const weaknessesText = text.substring(weaknessesIndex, endIndex)
+    result.weaknesses = weaknessesText
+      .split(/\d+\.\s+/)
+      .filter(item => item.trim() && !item.includes('不足之处'))
+      .map(item => item.replace(/;$/, '').trim())
+  }
+  
+  // 解析改进建议
+  if (improvementsIndex !== -1) {
+    const improvementsText = text.substring(improvementsIndex)
+    result.improvements = improvementsText
+      .split(/\d+\.\s+/)
+      .filter(item => item.trim() && !item.includes('改进建议'))
+      .map(item => item.replace(/;$/, '').trim())
+  }
+  
+  return result
+})
+
+// 根据评分返回标签类型
+const getScoreTagType = (score: number): 'success' | 'warning' | 'danger' | 'info' => {
+  if (score >= 80) return 'success'
+  if (score >= 60) return 'warning'
+  if (score >= 40) return 'danger'
+  return 'info'
+}
+
 const handleOptimize = async () => {
   if (!jobDescription.value.trim()) {
     ElMessage.warning('请输入职位描述')
@@ -161,7 +268,7 @@ const handleOptimize = async () => {
   }
   
   if (!resumeStore.currentResumeId) {
-     ElMessage.error('简历 ID 丢失，请重新上传简历')
+     ElMessage.error('简历 ID 丢失,请重新上传简历')
      router.push('/resume/upload')
      return
   }
@@ -177,7 +284,7 @@ const handleOptimize = async () => {
     ElMessage.success('优化完成')
   } catch (error: any) {
     // 优先显示后端返回的具体错误信息
-    const errorMessage = error.errorMessage || error.response?.data?.message || error.response?.data?.msg || error.message || '优化失败，请重试'
+    const errorMessage = error.errorMessage || error.response?.data?.message || error.response?.data?.msg || error.message || '优化失败,请重试'
     ElMessage.error(errorMessage)
     console.error('优化失败:', error)
   } finally {
@@ -347,72 +454,213 @@ const handleOptimize = async () => {
 
 .suggestions-list {
   .subsection-title {
-    font-size: 1.1rem;
-    margin-bottom: 20px;
+    font-size: 1.2rem;
+    margin-bottom: 25px;
     color: var(--text-main);
+    font-weight: 600;
   }
   
-  .suggestion-text-content {
+  .suggestion-structured-content {
     margin-bottom: 30px;
   }
   
-  .suggestion-text {
-    background-color: #f8fafc;
+  .suggestion-section {
+    margin-bottom: 25px;
+    border-radius: 10px;
     padding: 20px;
-    border-radius: 8px;
-    border: 1px solid var(--border-color);
-    white-space: pre-wrap;
-    word-wrap: break-word;
-    font-family: inherit;
-    font-size: 0.95rem;
-    line-height: 1.6;
-    color: var(--text-main);
+    background: linear-gradient(135deg, #f8fafc 0%, #ffffff 100%);
+    border-left: 4px solid #cbd5e1;
+    transition: all 0.3s ease;
+    
+    &:hover {
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+      transform: translateY(-2px);
+    }
+    
+    &.advantage-section {
+      border-left-color: #67c23a;
+      background: linear-gradient(135deg, #f0f9ff 0%, #ffffff 100%);
+    }
+    
+    &.weakness-section {
+      border-left-color: #e6a23c;
+      background: linear-gradient(135deg, #fffbf0 0%, #ffffff 100%);
+    }
+    
+    &.improvement-section {
+      border-left-color: #409eff;
+      background: linear-gradient(135deg, #f0f7ff 0%, #ffffff 100%);
+    }
+    
+    .section-header {
+      display: flex;
+      align-items: center;
+      margin-bottom: 15px;
+      
+      .section-icon {
+        font-size: 1.3rem;
+        margin-right: 10px;
+      }
+      
+      .section-title {
+        font-size: 1rem;
+        font-weight: 600;
+        color: var(--text-main);
+        margin: 0;
+      }
+    }
+  }
+  
+  .suggestion-list {
+    list-style: none;
+    padding: 0;
     margin: 0;
+    
+    .suggestion-item {
+      display: flex;
+      align-items: flex-start;
+      padding: 12px 15px;
+      margin-bottom: 10px;
+      border-radius: 8px;
+      background-color: #ffffff;
+      border: 1px solid #e8eaed;
+      transition: all 0.2s ease;
+      
+      &:hover {
+        border-color: #cbd5e1;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+      }
+      
+      &:last-child {
+        margin-bottom: 0;
+      }
+      
+      .item-number {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        font-size: 0.85rem;
+        font-weight: 600;
+        margin-right: 12px;
+        flex-shrink: 0;
+      }
+      
+      .item-text {
+        flex: 1;
+        font-size: 0.92rem;
+        line-height: 1.7;
+        color: var(--text-main);
+      }
+      
+      &.success-item .item-number {
+        background-color: #f0f9ff;
+        color: #67c23a;
+        border: 1px solid #b3e19d;
+      }
+      
+      &.warning-item .item-number {
+        background-color: #fef9f0;
+        color: #e6a23c;
+        border: 1px solid #f3d19e;
+      }
+      
+      &.primary-item .item-number {
+        background-color: #ecf5ff;
+        color: #409eff;
+        border: 1px solid #a0cfff;
+      }
+    }
+  }
+  
+  .suggestion-text-fallback {
+    margin-bottom: 30px;
+    
+    .suggestion-text {
+      background-color: #f8fafc;
+      padding: 20px;
+      border-radius: 8px;
+      border: 1px solid var(--border-color);
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      font-family: inherit;
+      font-size: 0.95rem;
+      line-height: 1.6;
+      color: var(--text-main);
+      margin: 0;
+    }
   }
   
   .history-section {
-    margin-top: 30px;
-    padding-top: 20px;
-    border-top: 1px solid var(--border-color);
+    margin-top: 35px;
+    padding-top: 25px;
+    border-top: 2px solid var(--border-color);
   }
   
-  .history-title {
-    font-size: 1rem;
-    margin-bottom: 15px;
+  .history-section-title {
+    font-size: 1.1rem;
+    margin-bottom: 20px;
     color: var(--text-main);
+    font-weight: 600;
   }
   
   .history-item {
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
-    padding: 15px;
+    border: 1px solid #e8eaed;
+    border-radius: 10px;
+    padding: 18px;
     margin-bottom: 15px;
-    background-color: #fafafa;
-    transition: all 0.2s;
+    background: linear-gradient(135deg, #fafbfc 0%, #ffffff 100%);
+    transition: all 0.3s ease;
     
     &:hover {
-      border-color: #cbd5e1;
-      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+      border-color: #409eff;
+      box-shadow: 0 4px 12px rgba(64, 158, 255, 0.1);
+      transform: translateX(5px);
     }
     
     .history-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 10px;
+      margin-bottom: 12px;
       
-      .history-index {
-        font-weight: 600;
-        color: var(--text-secondary);
-        font-size: 0.9rem;
+      .history-left {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        
+        .history-badge {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          width: 28px;
+          height: 28px;
+          border-radius: 50%;
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          color: #ffffff;
+          font-weight: 600;
+          font-size: 0.85rem;
+          box-shadow: 0 2px 4px rgba(102, 126, 234, 0.3);
+        }
+        
+        .history-label {
+          font-weight: 600;
+          color: var(--text-main);
+          font-size: 0.95rem;
+        }
       }
     }
     
     .history-feedback {
       font-size: 0.9rem;
-      color: var(--text-main);
-      margin: 0;
-      line-height: 1.5;
+      color: var(--text-regular);
+      line-height: 1.7;
+      padding: 12px 15px;
+      background-color: #f8fafc;
+      border-radius: 6px;
+      border-left: 3px solid #cbd5e1;
     }
   }
 }
