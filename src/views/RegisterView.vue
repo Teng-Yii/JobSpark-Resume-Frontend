@@ -3,18 +3,32 @@ import { reactive, ref } from 'vue'
 import { useUserStore } from '@/stores/user'
 import { useRouter } from 'vue-router'
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
-import { User, Lock } from '@element-plus/icons-vue'
+import { User, Lock, Message, Phone } from '@element-plus/icons-vue'
 
 const userStore = useUserStore()
 const router = useRouter()
 
-const loginFormRef = ref<FormInstance>()
+const registerFormRef = ref<FormInstance>()
 const loading = ref(false)
 
 const form = reactive({
   username: '',
-  password: ''
+  password: '',
+  confirmPassword: '',
+  email: '',
+  phone: '',
+  nickname: ''
 })
+
+const validatePass = (rule: any, value: any, callback: any) => {
+  if (value === '') {
+    callback(new Error('请再次输入密码'))
+  } else if (value !== form.password) {
+    callback(new Error('两次输入密码不一致'))
+  } else {
+    callback()
+  }
+}
 
 const rules = reactive<FormRules>({
   username: [
@@ -24,21 +38,35 @@ const rules = reactive<FormRules>({
   password: [
     { required: true, message: '请输入密码', trigger: 'blur' },
     { min: 6, message: '密码长度不能小于 6 位', trigger: 'blur' }
+  ],
+  confirmPassword: [
+    { required: true, validator: validatePass, trigger: 'blur' }
+  ],
+  email: [
+    { required: true, message: '请输入邮箱', trigger: 'blur' },
+    { type: 'email', message: '请输入正确的邮箱地址', trigger: 'blur' }
+  ],
+  phone: [
+    { pattern: /^1[3-9]\d{9}$/, message: '请输入正确的手机号码', trigger: 'blur' }
   ]
 })
 
-const handleLogin = async (formEl: FormInstance | undefined) => {
+const handleRegister = async (formEl: FormInstance | undefined) => {
   if (!formEl) return
   
   await formEl.validate(async (valid) => {
     if (valid) {
       loading.value = true
       try {
-        await userStore.login({
+        await userStore.register({
           username: form.username,
-          password: form.password
+          password: form.password,
+          confirmPassword: form.confirmPassword,
+          email: form.email,
+          phone: form.phone || undefined,
+          nickname: form.nickname || undefined
         })
-        ElMessage.success('登录成功，欢迎回来')
+        ElMessage.success('注册成功，欢迎加入')
         router.push('/home')
       } catch (error: any) {
         console.error(error)
@@ -49,45 +77,65 @@ const handleLogin = async (formEl: FormInstance | undefined) => {
   })
 }
 
-const goToRegister = () => {
-  router.push('/register')
-}
-
-const goToForgotPassword = () => {
-  router.push('/forgot-password')
+const goToLogin = () => {
+  router.push('/login')
 }
 </script>
 
 <template>
-  <div class="login-container">
-    <div class="login-left">
+  <div class="register-container">
+    <div class="register-left">
       <div class="brand-wrapper">
         <h1 class="brand-title">JobSpark 智能简历</h1>
-        <p class="brand-slogan">您的职业未来，由智能简历优化开启</p>
+        <p class="brand-slogan">开启您的职业新征程</p>
       </div>
       <div class="brand-decoration"></div>
     </div>
     
-    <div class="login-right">
+    <div class="register-right">
       <div class="form-wrapper fade-in">
         <div class="form-header">
-          <h2>欢迎回来</h2>
-          <p class="subtitle">登录您的账户</p>
+          <h2>创建账户</h2>
+          <p class="subtitle">填写信息完成注册</p>
         </div>
         
         <el-form
-          ref="loginFormRef"
+          ref="registerFormRef"
           :model="form"
           :rules="rules"
           label-position="top"
           size="large"
-          class="login-form"
+          class="register-form"
         >
           <el-form-item label="用户名" prop="username">
             <el-input
               v-model="form.username"
               placeholder="请输入用户名"
               :prefix-icon="User"
+            />
+          </el-form-item>
+          
+          <el-form-item label="邮箱" prop="email">
+            <el-input
+              v-model="form.email"
+              placeholder="请输入邮箱地址"
+              :prefix-icon="Message"
+            />
+          </el-form-item>
+          
+          <el-form-item label="昵称（可选）" prop="nickname">
+            <el-input
+              v-model="form.nickname"
+              placeholder="请输入昵称"
+              :prefix-icon="User"
+            />
+          </el-form-item>
+          
+          <el-form-item label="手机号（可选）" prop="phone">
+            <el-input
+              v-model="form.phone"
+              placeholder="请输入手机号"
+              :prefix-icon="Phone"
             />
           </el-form-item>
           
@@ -98,26 +146,32 @@ const goToForgotPassword = () => {
               placeholder="请输入密码"
               :prefix-icon="Lock"
               show-password
-              @keyup.enter="handleLogin(loginFormRef)"
             />
           </el-form-item>
           
-          <div class="form-footer">
-            <el-link type="primary" :underline="false" @click="goToForgotPassword">忘记密码？</el-link>
-          </div>
+          <el-form-item label="确认密码" prop="confirmPassword">
+            <el-input
+              v-model="form.confirmPassword"
+              type="password"
+              placeholder="请再次输入密码"
+              :prefix-icon="Lock"
+              show-password
+              @keyup.enter="handleRegister(registerFormRef)"
+            />
+          </el-form-item>
           
           <el-button
             type="primary"
             :loading="loading"
-            class="login-button"
-            @click="handleLogin(loginFormRef)"
+            class="register-button"
+            @click="handleRegister(registerFormRef)"
           >
-            登 录
+            注 册
           </el-button>
           
-          <div class="register-footer">
-            <span class="footer-text">还没有账户？</span>
-            <el-link type="primary" :underline="false" @click="goToRegister">立即注册</el-link>
+          <div class="form-footer">
+            <span class="footer-text">已有账户？</span>
+            <el-link type="primary" :underline="false" @click="goToLogin">立即登录</el-link>
           </div>
         </el-form>
       </div>
@@ -126,7 +180,7 @@ const goToForgotPassword = () => {
 </template>
 
 <style scoped lang="scss">
-.login-container {
+.register-container {
   display: flex;
   height: 100vh;
   width: 100%;
@@ -134,9 +188,9 @@ const goToForgotPassword = () => {
   overflow: hidden;
 }
 
-.login-left {
+.register-left {
   flex: 1;
-  background: linear-gradient(135deg, #4a6cf7 0%, #3b5bdb 100%);
+  background: linear-gradient(135deg, #6a994e 0%, #588157 100%);
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -185,23 +239,24 @@ const goToForgotPassword = () => {
   }
 }
 
-.login-right {
+.register-right {
   flex: 1;
   display: flex;
   justify-content: center;
   align-items: center;
   background-color: #fff;
   padding: 40px;
+  overflow-y: auto;
   
   .form-wrapper {
     width: 100%;
-    max-width: 400px;
+    max-width: 440px;
   }
 }
 
 .form-header {
   text-align: center;
-  margin-bottom: 2.5rem;
+  margin-bottom: 2rem;
   
   h2 {
     font-size: 1.875rem;
@@ -215,7 +270,7 @@ const goToForgotPassword = () => {
   }
 }
 
-.login-form {
+.register-form {
   :deep(.el-input__wrapper) {
     box-shadow: none;
     background-color: #f8fafc;
@@ -233,30 +288,29 @@ const goToForgotPassword = () => {
     font-weight: 600;
     color: var(--text-main);
   }
+  
+  :deep(.el-form-item) {
+    margin-bottom: 18px;
+  }
 }
 
-.form-footer {
-  display: flex;
-  justify-content: flex-end;
-  margin-bottom: 1.5rem;
-}
-
-.login-button {
+.register-button {
   width: 100%;
   height: 48px;
   font-size: 1rem;
   font-weight: 600;
   border-radius: 8px;
-  background-color: var(--primary-color);
-  border-color: var(--primary-color);
+  background-color: var(--secondary-color);
+  border-color: var(--secondary-color);
+  margin-top: 8px;
   
   &:hover {
-    background-color: var(--primary-hover);
-    border-color: var(--primary-hover);
+    background-color: #588157;
+    border-color: #588157;
   }
 }
 
-.register-footer {
+.form-footer {
   display: flex;
   justify-content: center;
   align-items: center;

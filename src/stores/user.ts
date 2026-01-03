@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import { loginApi, logoutApi, getUserInfoApi, type LoginRequest, type UserInfoResponse } from '@/api/auth'
+import { loginApi, logoutApi, getUserInfoApi, registerApi, type LoginRequest, type RegisterRequest, type UserInfoResponse } from '@/api/auth'
 
 export const useUserStore = defineStore('user', () => {
   const token = ref<string | null>(localStorage.getItem('token') || null)
@@ -28,6 +28,24 @@ export const useUserStore = defineStore('user', () => {
       if (tokenStr) {
         setToken(tokenStr)
         // 登录成功后获取用户信息
+        await fetchUserInfo()
+      } else {
+        throw new Error('Token not found in response')
+      }
+      return res
+    } catch (error) {
+      throw error
+    }
+  }
+
+  const register = async (registerForm: RegisterRequest) => {
+    try {
+      const res = await registerApi(registerForm)
+      // 注册成功后自动登录，获取token
+      const tokenStr = (res as any).accessToken || (res as any).token || (res as any).data?.accessToken || (res as any).data?.token
+      if (tokenStr) {
+        setToken(tokenStr)
+        // 注册成功后获取用户信息
         await fetchUserInfo()
       } else {
         throw new Error('Token not found in response')
@@ -77,6 +95,7 @@ export const useUserStore = defineStore('user', () => {
     logout,
     clearLoginState,
     login,
+    register,
     fetchUserInfo
   }
 })
