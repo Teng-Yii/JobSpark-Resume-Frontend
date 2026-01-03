@@ -28,7 +28,6 @@ export interface TaskStatusResponse {
 
 // 简历优化请求参数
 export interface ResumeOptimizeRequest {
-  userId: number // int64
   resumeId: string
   jobDescription: string
 }
@@ -84,7 +83,8 @@ export function optimizeResume(data: ResumeOptimizeRequest) {
   return request<any, ResumeOptimizedResponse>({
     url: '/resumes/optimize',
     method: 'post',
-    data
+    data,
+    timeout: 200000 // 200秒超时（AI分析耗时较长）
   })
 }
 

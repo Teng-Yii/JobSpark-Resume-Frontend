@@ -112,11 +112,9 @@ import { ElMessage } from 'element-plus'
 import type { ResumeOptimizedResponse } from '@/api/resume'
 import { optimizeResume } from '@/api/resume'
 import { useResumeStore } from '@/stores/resume'
-import { useUserStore } from '@/stores/user'
 
 const router = useRouter()
 const resumeStore = useResumeStore()
-const userStore = useUserStore()
 
 const loading = ref(false)
 const optimizing = ref(false)
@@ -167,17 +165,10 @@ const handleOptimize = async () => {
      router.push('/resume/upload')
      return
   }
-  
-  if (!userStore.userInfo?.id) {
-    ElMessage.error('用户信息丢失，请重新登录')
-    router.push('/login')
-    return
-  }
 
   optimizing.value = true
   try {
     const res = await optimizeResume({
-      userId: Number(userStore.userInfo.id),
       resumeId: resumeStore.currentResumeId,
       jobDescription: jobDescription.value
     })
