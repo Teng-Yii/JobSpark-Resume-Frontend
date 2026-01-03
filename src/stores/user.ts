@@ -30,7 +30,8 @@ export const useUserStore = defineStore('user', () => {
         // 登录成功后获取用户信息
         await fetchUserInfo()
       } else {
-        throw new Error('Token not found in response')
+        // 登录必须返回 token，否则视为服务器异常
+        throw new Error('登录失败，服务器未返回身份验证信息')
       }
       return res
     } catch (error) {
@@ -41,15 +42,14 @@ export const useUserStore = defineStore('user', () => {
   const register = async (registerForm: RegisterRequest) => {
     try {
       const res = await registerApi(registerForm)
-      // 注册成功后自动登录，获取token
+      // 注册成功后尝试自动登录，获取token
       const tokenStr = (res as any).accessToken || (res as any).token || (res as any).data?.accessToken || (res as any).data?.token
       if (tokenStr) {
         setToken(tokenStr)
         // 注册成功后获取用户信息
         await fetchUserInfo()
-      } else {
-        throw new Error('Token not found in response')
       }
+      // 如果没有返回token，不抛出错误，由调用方决定是跳转到登录页还是首页
       return res
     } catch (error) {
       throw error

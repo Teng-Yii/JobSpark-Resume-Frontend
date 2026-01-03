@@ -41,7 +41,10 @@ const handleLogin = async (formEl: FormInstance | undefined) => {
         ElMessage.success('登录成功，欢迎回来')
         router.push('/home')
       } catch (error: any) {
-        console.error(error)
+        // 优先显示后端返回的具体错误信息
+        const errorMessage = error.errorMessage || error.response?.data?.message || error.response?.data?.msg || error.message || '登录失败，请稍后重试'
+        ElMessage.error(errorMessage)
+        console.error('登录失败:', error)
       } finally {
         loading.value = false
       }

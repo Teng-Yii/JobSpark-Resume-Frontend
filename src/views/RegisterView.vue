@@ -66,10 +66,22 @@ const handleRegister = async (formEl: FormInstance | undefined) => {
           phone: form.phone || undefined,
           nickname: form.nickname || undefined
         })
-        ElMessage.success('注册成功，欢迎加入')
-        router.push('/home')
+        
+        // 根据是否有 token 决定跳转到哪里
+        if (userStore.token) {
+          // 如果后端返回了 token，说明自动登录成功，跳转到首页
+          ElMessage.success('注册成功，欢迎加入')
+          router.push('/home')
+        } else {
+          // 如果没有返回 token，说明只是注册成功，需要跳转到登录页
+          ElMessage.success('注册成功，请登录')
+          router.push('/login')
+        }
       } catch (error: any) {
-        console.error(error)
+        // 优先显示后端返回的具体错误信息
+        const errorMessage = error.errorMessage || error.response?.data?.message || error.response?.data?.msg || error.message || '注册失败，请稍后重试'
+        ElMessage.error(errorMessage)
+        console.error('注册失败:', error)
       } finally {
         loading.value = false
       }
