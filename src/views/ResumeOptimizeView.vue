@@ -54,82 +54,82 @@
               </div>
 
               <!-- Result Section -->
-              <div v-if="optimizationResult" class="result-container fade-in">
+              <div v-if="resumeStore.optimizationResult" class="result-container fade-in">
                 <!-- 显示最新评分 -->
-                <div v-if="optimizationResult.optimizationHistory && optimizationResult.optimizationHistory.length > 0" class="score-card">
+                <div v-if="resumeStore.optimizationResult.optimizationHistory && resumeStore.optimizationResult.optimizationHistory.length > 0" class="score-card">
                   <div class="score-ring-wrapper">
-                    <el-progress 
-                      type="dashboard" 
-                      :percentage="Math.round(optimizationResult.optimizationHistory[optimizationResult.optimizationHistory.length - 1].score)" 
+                    <el-progress
+                      type="dashboard"
+                      :percentage="Math.round(resumeStore.optimizationResult.optimizationHistory[resumeStore.optimizationResult.optimizationHistory.length - 1].score)"
                       :color="scoreColors"
                       :width="100"
                       :stroke-width="8"
                     />
                   </div>
                   <div class="score-info">
-                    <div class="score-value">{{ optimizationResult.optimizationHistory[optimizationResult.optimizationHistory.length - 1].score.toFixed(1) }}</div>
+                    <div class="score-value">{{ resumeStore.optimizationResult.optimizationHistory[resumeStore.optimizationResult.optimizationHistory.length - 1].score.toFixed(1) }}</div>
                     <div class="score-label">简历评分</div>
                   </div>
                 </div>
-                
+
                 <!-- 显示优化建议文本 -->
                 <div class="suggestions-list">
                   <h3 class="subsection-title">📋 优化建议详情</h3>
-                  
+
                   <div class="suggestion-structured-content">
                     <!-- 优势亮点 -->
-                    <div v-if="parsedSuggestion.advantages" class="suggestion-section advantage-section">
+                    <div v-if="resumeStore.parsedSuggestion.advantages" class="suggestion-section advantage-section">
                       <div class="section-header">
                         <span class="section-icon">✨</span>
                         <h4 class="section-title">优势亮点</h4>
                       </div>
                       <ul class="suggestion-list">
-                        <li v-for="(item, idx) in parsedSuggestion.advantages" :key="idx" class="suggestion-item success-item">
+                        <li v-for="(item, idx) in resumeStore.parsedSuggestion.advantages" :key="idx" class="suggestion-item success-item">
                           <span class="item-number">{{ idx + 1 }}</span>
                           <span class="item-text">{{ item }}</span>
                         </li>
                       </ul>
                     </div>
-                    
+
                     <!-- 不足之处 -->
-                    <div v-if="parsedSuggestion.weaknesses" class="suggestion-section weakness-section">
+                    <div v-if="resumeStore.parsedSuggestion.weaknesses" class="suggestion-section weakness-section">
                       <div class="section-header">
                         <span class="section-icon">⚠️</span>
                         <h4 class="section-title">不足之处</h4>
                       </div>
                       <ul class="suggestion-list">
-                        <li v-for="(item, idx) in parsedSuggestion.weaknesses" :key="idx" class="suggestion-item warning-item">
+                        <li v-for="(item, idx) in resumeStore.parsedSuggestion.weaknesses" :key="idx" class="suggestion-item warning-item">
                           <span class="item-number">{{ idx + 1 }}</span>
                           <span class="item-text">{{ item }}</span>
                         </li>
                       </ul>
                     </div>
-                    
+
                     <!-- 改进建议 -->
-                    <div v-if="parsedSuggestion.improvements" class="suggestion-section improvement-section">
+                    <div v-if="resumeStore.parsedSuggestion.improvements" class="suggestion-section improvement-section">
                       <div class="section-header">
                         <span class="section-icon">💡</span>
                         <h4 class="section-title">改进建议</h4>
                       </div>
                       <ul class="suggestion-list">
-                        <li v-for="(item, idx) in parsedSuggestion.improvements" :key="idx" class="suggestion-item primary-item">
+                        <li v-for="(item, idx) in resumeStore.parsedSuggestion.improvements" :key="idx" class="suggestion-item primary-item">
                           <span class="item-number">{{ idx + 1 }}</span>
                           <span class="item-text">{{ item }}</span>
                         </li>
                       </ul>
                     </div>
-                    
+
                     <!-- 如果解析失败，显示原始文本 -->
-                    <div v-if="!parsedSuggestion.advantages && !parsedSuggestion.weaknesses && !parsedSuggestion.improvements" class="suggestion-text-fallback">
-                      <pre class="suggestion-text">{{ optimizationResult.suggestionText }}</pre>
+                    <div v-if="!resumeStore.parsedSuggestion.advantages && !resumeStore.parsedSuggestion.weaknesses && !resumeStore.parsedSuggestion.improvements" class="suggestion-text-fallback">
+                      <pre class="suggestion-text">{{ resumeStore.optimizationResult.suggestionText }}</pre>
                     </div>
                   </div>
-                  
+
                   <!-- 历史评分记录 -->
-                  <div v-if="optimizationResult.optimizationHistory && optimizationResult.optimizationHistory.length > 1" class="history-section">
+                  <div v-if="resumeStore.optimizationResult.optimizationHistory && resumeStore.optimizationResult.optimizationHistory.length > 1" class="history-section">
                     <h4 class="history-section-title">📊 历史评分记录</h4>
                     <div
-                      v-for="(record, index) in optimizationResult.optimizationHistory"
+                      v-for="(record, index) in resumeStore.optimizationResult.optimizationHistory"
                       :key="index"
                       class="history-item"
                     >
@@ -156,21 +156,21 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import type { ResumeOptimizedResponse } from '@/api/resume'
-import { optimizeResume } from '@/api/resume'
+import { optimizeResume, optimizeResumeStream } from '@/api/resume'
 import { useResumeStore } from '@/stores/resume'
+import { useUserStore } from '@/stores/user'
 
 const router = useRouter()
 const resumeStore = useResumeStore()
+const userStore = useUserStore()
 
 const loading = ref(false)
 const optimizing = ref(false)
 const resumeContent = ref('<div class="empty-state">No resume content loaded</div>')
 const jobDescription = ref('')
-const optimizationResult = ref<ResumeOptimizedResponse | null>(null)
 
 const scoreColors = [
   { color: '#f56c6c', percentage: 40 },
@@ -184,7 +184,7 @@ onMounted(() => {
     router.push('/resume/upload')
     return
   }
-  
+
   if (resumeStore.currentResumeContent) {
     // Simple formatting for display
     resumeContent.value = resumeStore.currentResumeContent
@@ -204,54 +204,6 @@ const getTypeColor = (type: string): 'primary' | 'success' | 'warning' | 'info' 
   return map[type.toLowerCase()] || 'info'
 }
 
-// 解析优化建议文本
-const parsedSuggestion = computed(() => {
-  if (!optimizationResult.value?.suggestionText) {
-    return { advantages: null, weaknesses: null, improvements: null }
-  }
-  
-  const text = optimizationResult.value.suggestionText
-  const result: { advantages: string[] | null, weaknesses: string[] | null, improvements: string[] | null } = {
-    advantages: null,
-    weaknesses: null,
-    improvements: null
-  }
-  
-  // 解析优势亮点
-  const advantagesIndex = text.indexOf('优势亮点')
-  const weaknessesIndex = text.indexOf('不足之处')
-  const improvementsIndex = text.indexOf('改进建议')
-  
-  if (advantagesIndex !== -1) {
-    const endIndex = weaknessesIndex !== -1 ? weaknessesIndex : (improvementsIndex !== -1 ? improvementsIndex : text.length)
-    const advantagesText = text.substring(advantagesIndex, endIndex)
-    result.advantages = advantagesText
-      .split(/\d+\.\s+/)
-      .filter(item => item.trim() && !item.includes('优势亮点'))
-      .map(item => item.replace(/;$/, '').trim())
-  }
-  
-  // 解析不足之处
-  if (weaknessesIndex !== -1) {
-    const endIndex = improvementsIndex !== -1 ? improvementsIndex : text.length
-    const weaknessesText = text.substring(weaknessesIndex, endIndex)
-    result.weaknesses = weaknessesText
-      .split(/\d+\.\s+/)
-      .filter(item => item.trim() && !item.includes('不足之处'))
-      .map(item => item.replace(/;$/, '').trim())
-  }
-  
-  // 解析改进建议
-  if (improvementsIndex !== -1) {
-    const improvementsText = text.substring(improvementsIndex)
-    result.improvements = improvementsText
-      .split(/\d+\.\s+/)
-      .filter(item => item.trim() && !item.includes('改进建议'))
-      .map(item => item.replace(/;$/, '').trim())
-  }
-  
-  return result
-})
 
 // 根据评分返回标签类型
 const getScoreTagType = (score: number): 'success' | 'warning' | 'danger' | 'info' => {
@@ -266,7 +218,7 @@ const handleOptimize = async () => {
     ElMessage.warning('请输入职位描述')
     return
   }
-  
+
   if (!resumeStore.currentResumeId) {
      ElMessage.error('简历 ID 丢失,请重新上传简历')
      router.push('/resume/upload')
@@ -274,20 +226,81 @@ const handleOptimize = async () => {
   }
 
   optimizing.value = true
+  // 清空旧结果
+  resumeStore.setOptimizationResult({
+    suggestionText: '',
+    optimizedResumeId: 0,
+    optimizationHistory: []
+  })
+
   try {
-    const res = await optimizeResume({
+    await optimizeResumeStream({
       resumeId: resumeStore.currentResumeId,
       jobDescription: jobDescription.value
+    }, {
+      onMessage: (message, event) => {
+        // 如果后端返回 result 事件，则直接更新结果
+        if (event === 'result') {
+          try {
+            const res = JSON.parse(message)
+            resumeStore.setOptimizationResult(res)
+          } catch (e) {
+            console.error('Failed to parse result JSON:', e)
+          }
+        }
+        // 默认处理：如果是普通消息或content事件，尝试增量更新文本
+        else {
+          // 尝试解析JSON看是否有特定结构
+          try {
+            const res = JSON.parse(message)
+            if (res.suggestionText) {
+              // 假设是增量或全量，这里简单处理为更新
+              // 如果需要更复杂的增量逻辑，需要后端协议支持
+              // 暂时覆盖，如果是全量的话
+              if (res.isPartial) {
+                  // 如果后端有isPartial字段
+                  const current = resumeStore.optimizationResult?.suggestionText || ''
+                  resumeStore.optimizationResult!.suggestionText = current + res.suggestionText
+              } else {
+                  // 否则假设是完整对象或部分对象
+                  resumeStore.setOptimizationResult({
+                      ...resumeStore.optimizationResult!,
+                      ...res
+                  })
+              }
+            } else {
+                // 如果是其他JSON数据，可能忽略或处理
+            }
+          } catch (e) {
+            // 解析失败，视为纯文本追加 (流式输出常见情况)
+            if (!resumeStore.optimizationResult) {
+                resumeStore.setOptimizationResult({
+                    suggestionText: '',
+                    optimizedResumeId: 0,
+                    optimizationHistory: []
+                })
+            }
+            const current = resumeStore.optimizationResult!.suggestionText || ''
+            resumeStore.optimizationResult!.suggestionText = current + message
+          }
+        }
+      },
+      onError: (err) => {
+        // 优先显示后端返回的具体错误信息
+        const errorMessage = err.errorMessage || err.message || '优化失败,请重试'
+        ElMessage.error(errorMessage)
+        console.error('优化失败:', err)
+        optimizing.value = false
+      },
+      onClose: () => {
+        optimizing.value = false
+        ElMessage.success('优化完成')
+      }
     })
-    
-    optimizationResult.value = res
-    ElMessage.success('优化完成')
   } catch (error: any) {
-    // 优先显示后端返回的具体错误信息
-    const errorMessage = error.errorMessage || error.response?.data?.message || error.response?.data?.msg || error.message || '优化失败,请重试'
+    // 这里捕获的是发起请求阶段的错误（如网络不通等），流过程中的错误由 onError 处理
+    const errorMessage = error.errorMessage || error.message || '请求失败'
     ElMessage.error(errorMessage)
-    console.error('优化失败:', error)
-  } finally {
     optimizing.value = false
   }
 }

@@ -215,7 +215,7 @@ const pollTaskStatus = async (taskId: string) => {
         loading.value = false
         
         if (res.resumeId) {
-            resumeStore.setResumeId(String(res.resumeId))
+            resumeStore.setResumeId(res.resumeId)
             ElMessage.success('解析成功')
         } else {
              ElMessage.warning('解析完成但 ID 丢失')

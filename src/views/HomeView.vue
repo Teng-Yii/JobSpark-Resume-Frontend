@@ -2,7 +2,7 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
-import { DocumentAdd, DataLine, SwitchButton } from '@element-plus/icons-vue'
+import { DocumentAdd, DataLine, SwitchButton, Star } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
 const router = useRouter()
@@ -93,6 +93,21 @@ const handleLogout = async () => {
             <p class="card-desc">AI 驱动的简历深度优化</p>
             <div class="card-action">
               <span>开始优化</span>
+              <span class="arrow">→</span>
+            </div>
+          </div>
+        </div>
+        
+        <!-- 优秀简历模板录入卡片 -->
+        <div class="dashboard-card" @click="navigateTo('/excellent-resume')">
+          <div class="icon-box warning">
+            <el-icon><Star /></el-icon>
+          </div>
+          <div class="card-content">
+            <h3 class="card-title">优秀模板录入</h3>
+            <p class="card-desc">上传高质量简历模板，充实向量数据库</p>
+            <div class="card-action">
+              <span>开始录入</span>
               <span class="arrow">→</span>
             </div>
           </div>
@@ -223,6 +238,11 @@ const handleLogout = async () => {
     &.success {
       background-color: rgba(106, 153, 78, 0.1);
       color: var(--secondary-color);
+    }
+    
+    &.warning {
+      background-color: rgba(245, 158, 11, 0.1);
+      color: #f59e0b;
     }
   }
   

@@ -1,4 +1,6 @@
 import request from './request'
+import { fetchEventSource } from '@microsoft/fetch-event-source'
+import { useUserStore } from '@/stores/user'
 
 // 简历上传响应
 export interface ResumeUploadAsyncResponse {
@@ -47,13 +49,12 @@ export interface ResumeOptimizedResponse {
 
 // 简历优化下载请求
 export interface ResumeOptimizedDownloadRequest {
-  userId: number // int64
-  optimizedResumeId: number // int64
+  optimizedResumeId: string
   downloadFileType: string
 }
 
 // 嵌入向量存储响应
-export interface EmbeddingResponse {
+export type EmbeddingResponse = boolean | {
   success: boolean
   message: string
 }
@@ -86,6 +87,61 @@ export function optimizeResume(data: ResumeOptimizeRequest) {
     data,
     timeout: 200000 // 200秒超时（AI分析耗时较长）
   })
+}
+
+// 简历优化 SSE 流式传输
+export async function optimizeResumeStream(
+  data: ResumeOptimizeRequest,
+  callbacks: {
+    onMessage: (message: string, event?: string) => void
+    onError?: (error: any) => void
+    onClose?: () => void
+  }
+) {
+  const userStore = useUserStore()
+  const token = userStore.token
+  const baseURL = import.meta.env.VITE_API_URL || '/api/v1'
+  const url = `${baseURL.replace(/\/$/, '')}/resumes/optimize/stream`
+
+  try {
+    await fetchEventSource(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {})
+      },
+      body: JSON.stringify(data),
+      onmessage(msg) {
+        // 根据 msg.event 区分消息类型，如 'progress' 或 'result'
+        // 将消息内容和事件类型都传给回调
+        callbacks.onMessage(msg.data, msg.event)
+
+        // 如果收到 error 事件，也可以作为一种特殊消息处理，或者调用 onError
+        // 这里我们选择通过事件类型区分，由调用者决定
+        if (msg.event === 'error' && callbacks.onError) {
+            callbacks.onError(new Error(msg.data));
+        }
+      },
+      onerror(err) {
+        if (callbacks.onError) {
+          callbacks.onError(err)
+        }
+        // fetchEventSource 的 onerror 如果不抛出异常，默认会重试。
+        // 如果想终止重试，需要抛出异常。这里我们抛出异常来终止。
+        throw err
+      },
+      onclose() {
+        if (callbacks.onClose) {
+          callbacks.onClose()
+        }
+      },
+      openWhenHidden: true // 即使页面在后台也保持连接
+    })
+  } catch (err) {
+    if (callbacks.onError) {
+      callbacks.onError(err)
+    }
+  }
 }
 
 // 存储 Embedding
