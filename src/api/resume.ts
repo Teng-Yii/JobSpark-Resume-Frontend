@@ -151,3 +151,13 @@ export function storeEmbedding(resumeId: string) {
     method: 'post'
   })
 }
+
+// 生成优化后的简历文件
+export function generateOptimizedFile(data: ResumeOptimizedDownloadRequest) {
+  return request<any, Blob>({
+    url: '/resumes/generateOptimizedFile',
+    method: 'post',
+    data,
+    responseType: 'blob'
+  })
+}

@@ -25,7 +25,7 @@
               
               <div class="upload-text" v-if="!selectedFile">
                 <h3>点击或拖拽模板文件到此处上传</h3>
-                <p>支持 PDF / DOCX 格式 (最大 5MB)</p>
+                <p>支持 PDF 格式 (最大 5MB)</p>
               </div>
               
               <div class="file-info" v-else>

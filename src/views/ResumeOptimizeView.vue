@@ -13,24 +13,33 @@
             <div class="card-header">
               <h2 class="section-title">简历预览</h2>
               <div class="header-action">
-                <el-tag type="info" effect="plain">已解析内容</el-tag>
+                <el-button
+                  v-if="resumeStore.optimizationResult?.optimizedResumeId"
+                  type="primary"
+                  size="small"
+                  @click="handleDownload"
+                  :loading="downloading"
+                >
+                  下载优化简历
+                </el-button>
+                <el-tag v-else type="info" effect="plain">已解析内容</el-tag>
               </div>
             </div>
-            
+
             <div class="card-body scroll-container">
               <el-skeleton :rows="10" animated v-if="loading" />
               <div v-else class="resume-preview-content" v-html="resumeContent"></div>
             </div>
           </div>
         </el-col>
-        
+
         <!-- Right: Optimization Control -->
         <el-col :span="12" :xs="24" class="col-item">
           <div class="content-card card-shadow full-height">
             <div class="card-header">
               <h2 class="section-title">AI 优化控制台</h2>
             </div>
-            
+
             <div class="card-body scroll-container">
               <!-- Input Section -->
               <div class="input-group">
@@ -42,7 +51,7 @@
                   placeholder="在此粘贴目标职位的详细描述，以便 AI 进行针对性优化..."
                   class="custom-textarea"
                 />
-                
+
                 <el-button
                   type="primary"
                   @click="handleOptimize"
@@ -54,20 +63,36 @@
               </div>
 
               <!-- Result Section -->
-              <div v-if="resumeStore.optimizationResult" class="result-container fade-in">
+              <div v-if="resumeStore.optimizationResult || processStatus" class="result-container fade-in">
+
+                <!-- 实时状态展示区域 -->
+                <div v-if="processStatus || optimizing" class="process-status-container">
+                   <div class="status-header">
+                      <el-tag :type="processStatus === 'PROCESSING' ? 'primary' : (processStatus === 'COMPLETED' ? 'success' : (processStatus === 'ERROR' ? 'danger' : 'info'))" effect="dark">
+                        {{ processStatus === 'PROCESSING' ? '优化进行中' : (processStatus === 'COMPLETED' ? '优化完成' : (processStatus === 'ERROR' ? '发生错误' : processStatus || '准备中')) }}
+                      </el-tag>
+                      <span class="status-message">{{ processMessage }}</span>
+                   </div>
+                   <!-- 实时反馈展示 -->
+                   <div v-if="latestFeedback && optimizing" class="live-feedback">
+                      <div class="feedback-label">AI 实时思考:</div>
+                      <div class="feedback-content">{{ latestFeedback }}</div>
+                   </div>
+                </div>
+
                 <!-- 显示最新评分 -->
-                <div v-if="resumeStore.optimizationResult.optimizationHistory && resumeStore.optimizationResult.optimizationHistory.length > 0" class="score-card">
+                <div v-if="resumeStore.optimizationResult?.optimizationHistory && resumeStore.optimizationResult.optimizationHistory.length > 0" class="score-card">
                   <div class="score-ring-wrapper">
                     <el-progress
                       type="dashboard"
-                      :percentage="Math.round(resumeStore.optimizationResult.optimizationHistory[resumeStore.optimizationResult.optimizationHistory.length - 1].score)"
+                      :percentage="Math.round(resumeStore.optimizationResult!.optimizationHistory![resumeStore.optimizationResult!.optimizationHistory!.length - 1]!.score)"
                       :color="scoreColors"
                       :width="100"
                       :stroke-width="8"
                     />
                   </div>
                   <div class="score-info">
-                    <div class="score-value">{{ resumeStore.optimizationResult.optimizationHistory[resumeStore.optimizationResult.optimizationHistory.length - 1].score.toFixed(1) }}</div>
+                    <div class="score-value">{{ resumeStore.optimizationResult!.optimizationHistory![resumeStore.optimizationResult!.optimizationHistory!.length - 1]!.score.toFixed(1) }}</div>
                     <div class="score-label">简历评分</div>
                   </div>
                 </div>
@@ -121,12 +146,12 @@
 
                     <!-- 如果解析失败，显示原始文本 -->
                     <div v-if="!resumeStore.parsedSuggestion.advantages && !resumeStore.parsedSuggestion.weaknesses && !resumeStore.parsedSuggestion.improvements" class="suggestion-text-fallback">
-                      <pre class="suggestion-text">{{ resumeStore.optimizationResult.suggestionText }}</pre>
+                      <pre class="suggestion-text">{{ resumeStore.optimizationResult?.suggestionText }}</pre>
                     </div>
                   </div>
 
                   <!-- 历史评分记录 -->
-                  <div v-if="resumeStore.optimizationResult.optimizationHistory && resumeStore.optimizationResult.optimizationHistory.length > 1" class="history-section">
+                  <div v-if="resumeStore.optimizationResult?.optimizationHistory && resumeStore.optimizationResult.optimizationHistory.length > 1" class="history-section">
                     <h4 class="history-section-title">📊 历史评分记录</h4>
                     <div
                       v-for="(record, index) in resumeStore.optimizationResult.optimizationHistory"
@@ -156,10 +181,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { optimizeResume, optimizeResumeStream } from '@/api/resume'
+import { optimizeResume, optimizeResumeStream, generateOptimizedFile } from '@/api/resume'
 import { useResumeStore } from '@/stores/resume'
 import { useUserStore } from '@/stores/user'
 
@@ -169,8 +194,21 @@ const userStore = useUserStore()
 
 const loading = ref(false)
 const optimizing = ref(false)
+const downloading = ref(false)
 const resumeContent = ref('<div class="empty-state">No resume content loaded</div>')
 const jobDescription = ref('')
+
+// 新增：流式处理状态变量
+const processStatus = ref('')
+const processMessage = ref('')
+
+const latestFeedback = computed(() => {
+  const history = resumeStore.optimizationResult?.optimizationHistory
+  if (history && history.length > 0) {
+    return history[history.length - 1]?.feedback || ''
+  }
+  return ''
+})
 
 const scoreColors = [
   { color: '#f56c6c', percentage: 40 },
@@ -226,6 +264,9 @@ const handleOptimize = async () => {
   }
 
   optimizing.value = true
+  processStatus.value = 'STARTING'
+  processMessage.value = '开始初始化优化流程...'
+
   // 清空旧结果
   resumeStore.setOptimizationResult({
     suggestionText: '',
@@ -244,8 +285,62 @@ const handleOptimize = async () => {
           try {
             const res = JSON.parse(message)
             resumeStore.setOptimizationResult(res)
+            processStatus.value = 'COMPLETED'
+            processMessage.value = '优化已完成'
           } catch (e) {
             console.error('Failed to parse result JSON:', e)
+          }
+        }
+        // 处理进度事件，实时展示评分和反馈
+        else if (event === 'progress') {
+          try {
+            const data = JSON.parse(message)
+            // 更新实时状态
+            if (data.status) processStatus.value = data.status
+            if (data.message) processMessage.value = data.message
+
+            // 确保 optimizationResult 已初始化
+            if (!resumeStore.optimizationResult) {
+              resumeStore.setOptimizationResult({
+                suggestionText: '',
+                optimizedResumeId: 0,
+                optimizationHistory: []
+              })
+            }
+
+            const currentHistory = resumeStore.optimizationResult?.optimizationHistory || []
+            let score = data.score
+            // 如果分数是小数（如 0.78），转换为百分制（78）
+            if (score <= 1 && score > 0) {
+              score = score * 100
+            }
+
+            // 优先使用 feedback，如果没有则使用 message
+            const feedbackText = data.feedback || data.message || ''
+
+            const newRecord = {
+              score: score,
+              feedback: feedbackText
+            }
+
+            // 如果没有历史记录，或者我们需要实时更新当前正在进行的这条记录
+            // 策略：如果 history 为空，push 一条。如果 history 不为空，我们认为最后一条是当前正在优化的记录（或者上一条已完成），
+            // 但由于我们在开始优化时清空了 result (line 230)，所以这里通常 history 是空的或者只有当前这条。
+            if (currentHistory.length === 0) {
+              currentHistory.push(newRecord)
+            } else {
+              // 更新最后一条
+              currentHistory[currentHistory.length - 1] = newRecord
+            }
+
+            // 触发更新
+            resumeStore.setOptimizationResult({
+              ...resumeStore.optimizationResult!,
+              optimizationHistory: currentHistory
+            })
+
+          } catch (e) {
+            console.error('Failed to parse progress JSON:', e)
           }
         }
         // 默认处理：如果是普通消息或content事件，尝试增量更新文本
@@ -291,10 +386,15 @@ const handleOptimize = async () => {
         ElMessage.error(errorMessage)
         console.error('优化失败:', err)
         optimizing.value = false
+        processStatus.value = 'ERROR'
+        processMessage.value = errorMessage
       },
       onClose: () => {
         optimizing.value = false
-        ElMessage.success('优化完成')
+        if (processStatus.value !== 'ERROR') {
+             ElMessage.success('优化完成')
+             processStatus.value = 'COMPLETED'
+        }
       }
     })
   } catch (error: any) {
@@ -302,6 +402,45 @@ const handleOptimize = async () => {
     const errorMessage = error.errorMessage || error.message || '请求失败'
     ElMessage.error(errorMessage)
     optimizing.value = false
+    processStatus.value = 'ERROR'
+    processMessage.value = errorMessage
+  }
+}
+
+const handleDownload = async () => {
+  const optimizedResultId = resumeStore.optimizationResult?.optimizedResumeId
+  if (!optimizedResultId) {
+    ElMessage.warning('请先进行简历优化')
+    return
+  }
+
+  const resumeId = resumeStore.currentResumeId
+  if (!resumeId) {
+    ElMessage.error('简历 ID 丢失,请重新上传简历')
+    return
+  }
+
+  downloading.value = true
+  try {
+    const blob = await generateOptimizedFile({
+      optimizedResumeId: resumeId.toString(),
+      downloadFileType: 'pdf'
+    })
+
+    const url = window.URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.setAttribute('download', `optimized_resume_${resumeId}.pdf`)
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    window.URL.revokeObjectURL(url)
+    ElMessage.success('下载成功')
+  } catch (error) {
+    ElMessage.error('下载失败')
+    console.error(error)
+  } finally {
+    downloading.value = false
   }
 }
 </script>
@@ -318,13 +457,13 @@ const handleOptimize = async () => {
 .header-section {
   text-align: center;
   margin-bottom: 30px;
-  
+
   .page-title {
     font-size: 1.75rem;
     color: var(--text-main);
     margin-bottom: 5px;
   }
-  
+
   .page-subtitle {
     color: var(--text-secondary);
     font-size: 1rem;
@@ -356,7 +495,7 @@ const handleOptimize = async () => {
   height: 100%;
   overflow: hidden;
   border: 1px solid var(--border-color);
-  
+
   .card-header {
     padding: 20px;
     border-bottom: 1px solid var(--border-color);
@@ -364,14 +503,14 @@ const handleOptimize = async () => {
     justify-content: space-between;
     align-items: center;
     background-color: #fcfcfc;
-    
+
     .section-title {
       font-size: 1.1rem;
       margin: 0;
       color: var(--text-main);
     }
   }
-  
+
   .card-body {
     flex: 1;
     overflow-y: auto;
@@ -394,7 +533,7 @@ const handleOptimize = async () => {
   color: var(--text-regular);
   line-height: 1.6;
   font-size: 0.95rem;
-  
+
   :deep(p) {
     margin-bottom: 0.8em;
   }
@@ -402,7 +541,7 @@ const handleOptimize = async () => {
 
 .input-group {
   margin-bottom: 30px;
-  
+
   .input-label {
     display: block;
     margin-bottom: 10px;
@@ -410,22 +549,22 @@ const handleOptimize = async () => {
     color: var(--text-main);
     font-size: 0.95rem;
   }
-  
+
   .custom-textarea {
     margin-bottom: 15px;
-    
+
     :deep(.el-textarea__inner) {
       padding: 15px;
       font-family: inherit;
       border-color: var(--border-color);
-      
+
       &:focus {
         border-color: var(--primary-color);
         box-shadow: 0 0 0 1px var(--primary-color);
       }
     }
   }
-  
+
   .optimize-btn {
     width: 100%;
     height: 44px;
@@ -436,6 +575,44 @@ const handleOptimize = async () => {
 .result-container {
   border-top: 1px solid var(--border-color);
   padding-top: 20px;
+}
+
+.process-status-container {
+  background: #f0f9ff;
+  border: 1px solid #bae6fd;
+  border-radius: 8px;
+  padding: 15px;
+  margin-bottom: 20px;
+
+  .status-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 10px;
+
+    .status-message {
+      font-weight: 500;
+      color: var(--text-main);
+    }
+  }
+
+  .live-feedback {
+    background: rgba(255, 255, 255, 0.6);
+    padding: 10px;
+    border-radius: 6px;
+    font-size: 0.9rem;
+
+    .feedback-label {
+      font-weight: 600;
+      color: var(--primary-color);
+      margin-bottom: 4px;
+    }
+
+    .feedback-content {
+      color: var(--text-regular);
+      line-height: 1.5;
+    }
+  }
 }
 
 .score-card {
