@@ -18,12 +18,15 @@ export interface RegisterRequest {
   nickname?: string
 }
 
-export interface ForgotPasswordRequest {
+export interface SendForgetPasswordCodeRequest {
+  username: string
   email: string
 }
 
-export interface ResetPasswordRequest {
-  token: string
+export interface ForgetPasswordRequest {
+  username: string
+  email: string
+  code: string
   newPassword: string
   confirmPassword?: string
 }
@@ -91,36 +94,36 @@ export function validateTokenApi() {
 }
 
 /**
+ * 发送忘记密码验证码
+ * @param data 邮箱参数
+ */
+export function sendForgetPasswordCodeApi(data: SendForgetPasswordCodeRequest) {
+  return request<boolean>({
+    url: '/auth/sendForgetPasswordCode',
+    method: 'post',
+    data
+  })
+}
+
+/**
+ * 重置密码 (验证码模式)
+ * @param data 重置密码参数
+ */
+export function forgetPasswordApi(data: ForgetPasswordRequest) {
+  return request<boolean>({
+    url: '/auth/forgetPassword',
+    method: 'post',
+    data
+  })
+}
+
+/**
  * 用户注册
  * @param data 注册参数
  */
 export function registerApi(data: RegisterRequest) {
   return request<SecureLoginResponse>({
     url: '/auth/register',
-    method: 'post',
-    data
-  })
-}
-
-/**
- * 忘记密码 - 发送重置密码邮件
- * @param data 包含用户邮箱
- */
-export function forgotPasswordApi(data: ForgotPasswordRequest) {
-  return request({
-    url: '/auth/forgot-password',
-    method: 'post',
-    data
-  })
-}
-
-/**
- * 重置密码
- * @param data 包含重置token和新密码
- */
-export function resetPasswordApi(data: ResetPasswordRequest) {
-  return request({
-    url: '/auth/reset-password',
     method: 'post',
     data
   })
