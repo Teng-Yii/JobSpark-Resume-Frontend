@@ -9,7 +9,7 @@
           </el-button>
         </div>
         <h1 class="page-title">上传简历</h1>
-        <p class="page-subtitle">上传您的 PDF 或 DOCX 格式简历进行解析</p>
+        <p class="page-subtitle">上传您的 PDF 格式简历进行解析</p>
       </div>
       
       <div class="upload-card card-shadow">
