@@ -6,12 +6,18 @@ const router = createRouter({
   routes: [
     {
       path: '/',
-      redirect: '/login'
+      redirect: '/resume/list'
     },
     {
       path: '/home',
       name: 'home',
       component: () => import('@/views/HomeView.vue'),
+      meta: { requiresAuth: true }
+    },
+    {
+      path: '/resume/list',
+      name: 'resume-list',
+      component: () => import('@/views/ResumeListView.vue'),
       meta: { requiresAuth: true }
     },
     {

@@ -182,13 +182,15 @@
 
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { optimizeResume, optimizeResumeStream, generateOptimizedFile } from '@/api/resume'
 import { useResumeStore } from '@/stores/resume'
 import { useUserStore } from '@/stores/user'
+import type { ResumeDetailResponse } from '@/api/resume'
 
 const router = useRouter()
+const route = useRoute()
 const resumeStore = useResumeStore()
 const userStore = useUserStore()
 
@@ -216,19 +218,97 @@ const scoreColors = [
   { color: '#67c23a', percentage: 100 },
 ]
 
-onMounted(() => {
-  if (!resumeStore.currentResumeId) {
-    ElMessage.warning('请先上传简历')
-    router.push('/resume/upload')
-    return
+const formatResumeToHtml = (resume: ResumeDetailResponse) => {
+  let html = `<div class="resume-preview">`
+  html += `<h2>${resume.name || '姓名未知'}</h2>`
+  html += `<p><strong>${resume.title || ''}</strong></p>`
+
+  if (resume.contact) {
+      const contacts = []
+      if (resume.contact.phone) contacts.push(resume.contact.phone)
+      if (resume.contact.email) contacts.push(resume.contact.email)
+      if (contacts.length > 0) html += `<p>${contacts.join(' | ')}</p>`
   }
 
-  if (resumeStore.currentResumeContent) {
-    // Simple formatting for display
-    resumeContent.value = resumeStore.currentResumeContent
-      .split('\n')
-      .map(line => `<p>${line}</p>`)
-      .join('')
+  if (resume.summary) {
+      html += `<h3>个人简介</h3><p>${resume.summary}</p>`
+  }
+
+  if (resume.experiences && resume.experiences.length > 0) {
+      html += `<h3>工作经历</h3>`
+      resume.experiences.forEach(exp => {
+          html += `<div class="exp-item">
+            <p><strong>${exp.company || ''}</strong> - ${exp.role || ''}</p>
+            <p class="date">${exp.startTime || ''} ~ ${exp.endTime || ''}</p>
+            <p>${exp.description || ''}</p>
+          </div>`
+      })
+  }
+
+  if (resume.projects && resume.projects.length > 0) {
+      html += `<h3>项目经历</h3>`
+      resume.projects.forEach(proj => {
+          html += `<div class="proj-item">
+            <p><strong>${proj.name || ''}</strong> - ${proj.role || ''}</p>
+            <p class="date">${proj.startTime || ''} ~ ${proj.endTime || ''}</p>
+            <p>${proj.description || ''}</p>
+          </div>`
+      })
+  }
+
+  if (resume.educations && resume.educations.length > 0) {
+      html += `<h3>教育经历</h3>`
+      resume.educations.forEach(edu => {
+          html += `<div class="edu-item">
+            <p><strong>${edu.school || ''}</strong></p>
+            <p>${edu.degree || ''} - ${edu.major || ''}</p>
+            <p class="date">${edu.startTime || ''} ~ ${edu.endTime || ''}</p>
+          </div>`
+      })
+  }
+
+  html += `</div>`
+  return html
+}
+
+onMounted(async () => {
+  const queryId = route.query.id as string
+
+  // 1. 优先使用 URL 中的 ID
+  if (queryId) {
+    loading.value = true
+    resumeStore.setResumeId(queryId)
+    try {
+      // 检查 store 中是否有列表数据，如果没有则拉取
+      if (!resumeStore.resumeList || resumeStore.resumeList.length === 0) {
+        await resumeStore.fetchResumeList()
+      }
+
+      const foundResume = resumeStore.resumeList.find(r => r.id.toString() === queryId)
+      if (foundResume) {
+        resumeContent.value = formatResumeToHtml(foundResume)
+      } else {
+        ElMessage.warning('未找到指定简历信息')
+      }
+    } catch (e) {
+      ElMessage.error('加载简历信息失败')
+    } finally {
+      loading.value = false
+    }
+  }
+  // 2. 如果没有 URL ID，但 store 中有 currentResumeId（刚上传完的情况）
+  else if (resumeStore.currentResumeId) {
+     if (resumeStore.currentResumeContent) {
+        resumeContent.value = resumeStore.currentResumeContent
+          .split('\n')
+          .map(line => `<p>${line}</p>`)
+          .join('')
+      }
+  }
+  // 3. 既没有 URL ID 也没有 store ID
+  else {
+    ElMessage.warning('请先选择或上传一份简历')
+    router.push('/resume/list')
   }
 })
 

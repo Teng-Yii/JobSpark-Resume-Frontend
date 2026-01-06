@@ -59,6 +59,55 @@ export type EmbeddingResponse = boolean | {
   message: string
 }
 
+export interface ContactBO {
+  phone?: string
+  email?: string
+  wechat?: string
+}
+
+export interface EducationBO {
+  school?: string
+  degree?: string
+  major?: string
+  startTime?: string
+  endTime?: string
+  description?: string
+}
+
+export interface ExperienceBO {
+  company?: string
+  role?: string
+  startTime?: string
+  endTime?: string
+  description?: string
+}
+
+export interface ProjectBO {
+  name?: string
+  role?: string
+  startTime?: string
+  endTime?: string
+  description?: string
+}
+
+export interface SkillBO {
+  name?: string
+  level?: string
+}
+
+export interface ResumeDetailResponse {
+  id: number // 简历ID
+  name: string // 姓名
+  title: string // 求职标题/岗位意向
+  avatarUrl: string // 头像URL
+  summary: string // 个人简介
+  contact: ContactBO
+  educations: EducationBO[]
+  experiences: ExperienceBO[]
+  projects: ProjectBO[]
+  skills: SkillBO[]
+}
+
 // 简历上传
 export function uploadResume(data: FormData) {
   return request<any, ResumeUploadAsyncResponse>({
@@ -159,5 +208,13 @@ export function generateOptimizedFile(data: ResumeOptimizedDownloadRequest) {
     method: 'post',
     data,
     responseType: 'blob'
+  })
+}
+
+// 获取简历列表
+export function getResumeList() {
+  return request<any, ResumeDetailResponse[]>({
+    url: '/resumes/list',
+    method: 'get'
   })
 }

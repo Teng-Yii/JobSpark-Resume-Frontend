@@ -1,11 +1,13 @@
 import { ref, computed } from 'vue'
 import { defineStore } from 'pinia'
-import type { ResumeOptimizedResponse } from '@/api/resume'
+import type { ResumeOptimizedResponse, ResumeDetailResponse } from '@/api/resume'
+import { getResumeList } from '@/api/resume'
 
 export const useResumeStore = defineStore('resume', () => {
   const currentResumeId = ref<string | null>(null)
   const currentResumeContent = ref<string | null>(null) // 可以先存一下解析后的内容，如果有的话
   const optimizationResult = ref<ResumeOptimizedResponse | null>(null)
+  const resumeList = ref<ResumeDetailResponse[]>([])
 
   // 解析后的优化建议
   const parsedSuggestion = computed(() => {
@@ -74,14 +76,26 @@ export const useResumeStore = defineStore('resume', () => {
     optimizationResult.value = null
   }
 
+  async function fetchResumeList() {
+    try {
+      const response = await getResumeList()
+      resumeList.value = response
+    } catch (error) {
+      console.error('Failed to fetch resume list:', error)
+      throw error
+    }
+  }
+
   return {
     currentResumeId,
     currentResumeContent,
     optimizationResult,
     parsedSuggestion,
+    resumeList,
     setResumeId,
     setResumeContent,
     setOptimizationResult,
-    clearResume
+    clearResume,
+    fetchResumeList
   }
 })
