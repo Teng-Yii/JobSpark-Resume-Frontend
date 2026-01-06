@@ -59,6 +59,14 @@ export type EmbeddingResponse = boolean | {
   message: string
 }
 
+export interface HighlightBO {
+  id?: number
+  type?: number // 1: 工作经历, 2: 项目经历, 3: 技能
+  relatedId?: number
+  highlight?: string
+  sortOrder?: number
+}
+
 export interface ContactBO {
   phone?: string
   email?: string
@@ -80,6 +88,7 @@ export interface ExperienceBO {
   startTime?: string
   endTime?: string
   description?: string
+  highlights?: HighlightBO[] // 工作经历亮点
 }
 
 export interface ProjectBO {
@@ -88,11 +97,14 @@ export interface ProjectBO {
   startTime?: string
   endTime?: string
   description?: string
+  highlights?: HighlightBO[] // 项目经历亮点
 }
 
 export interface SkillBO {
   name?: string
   level?: string
+  category?: string
+  highlights?: HighlightBO[] // 技能亮点
 }
 
 export interface ResumeDetailResponse {

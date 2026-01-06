@@ -2,6 +2,12 @@
   <div class="page-container">
     <div class="content-wrapper fade-in">
       <div class="page-header">
+        <div class="header-back">
+          <el-button text @click="router.push('/resume/list')" class="back-btn">
+            <el-icon><ArrowLeft /></el-icon>
+            <span>返回简历列表</span>
+          </el-button>
+        </div>
         <h1 class="page-title">上传简历</h1>
         <p class="page-subtitle">上传您的 PDF 或 DOCX 格式简历进行解析</p>
       </div>
@@ -84,7 +90,7 @@
 <script setup lang="ts">
 import { ref, computed, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { UploadFilled, DocumentChecked } from '@element-plus/icons-vue'
+import { UploadFilled, DocumentChecked, ArrowLeft } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import type { UploadFile } from 'element-plus'
 import { uploadResume, getTaskStatus } from '@/api/resume'
@@ -330,6 +336,31 @@ onUnmounted(() => {
 .page-header {
   text-align: center;
   margin-bottom: 40px;
+  position: relative;
+  
+  .header-back {
+    position: absolute;
+    left: 0;
+    top: 0;
+    
+    .back-btn {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 0.95rem;
+      color: var(--text-secondary);
+      transition: all 0.3s ease;
+      
+      &:hover {
+        color: var(--primary-color);
+        transform: translateX(-4px);
+      }
+      
+      .el-icon {
+        font-size: 1rem;
+      }
+    }
+  }
   
   .page-title {
     font-size: 2rem;

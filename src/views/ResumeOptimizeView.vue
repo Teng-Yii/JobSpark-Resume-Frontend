@@ -1,6 +1,12 @@
 <template>
   <div class="page-container">
     <div class="header-section">
+      <div class="header-back">
+        <el-button text @click="router.push('/resume/list')" class="back-btn">
+          <el-icon><ArrowLeft /></el-icon>
+          <span>返回简历列表</span>
+        </el-button>
+      </div>
       <h1 class="page-title">AI 优化控制台</h1>
       <p class="page-subtitle">为特定职位量身定制您的简历</p>
     </div>
@@ -184,6 +190,7 @@
 import { ref, onMounted, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import { ArrowLeft } from '@element-plus/icons-vue'
 import { optimizeResume, optimizeResumeStream, generateOptimizedFile } from '@/api/resume'
 import { useResumeStore } from '@/stores/resume'
 import { useUserStore } from '@/stores/user'
@@ -240,8 +247,20 @@ const formatResumeToHtml = (resume: ResumeDetailResponse) => {
           html += `<div class="exp-item">
             <p><strong>${exp.company || ''}</strong> - ${exp.role || ''}</p>
             <p class="date">${exp.startTime || ''} ~ ${exp.endTime || ''}</p>
-            <p>${exp.description || ''}</p>
-          </div>`
+            <p>${exp.description || ''}</p>`
+          
+          // 显示工作经历亮点
+          if (exp.highlights && exp.highlights.length > 0) {
+            html += `<div class="highlights-section">
+              <div class="highlights-title">⭐ 工作亮点</div>
+              <ul class="highlights-list">`
+            exp.highlights.forEach(h => {
+              html += `<li class="highlight-item">${h.highlight || ''}</li>`
+            })
+            html += `</ul></div>`
+          }
+          
+          html += `</div>`
       })
   }
 
@@ -251,8 +270,20 @@ const formatResumeToHtml = (resume: ResumeDetailResponse) => {
           html += `<div class="proj-item">
             <p><strong>${proj.name || ''}</strong> - ${proj.role || ''}</p>
             <p class="date">${proj.startTime || ''} ~ ${proj.endTime || ''}</p>
-            <p>${proj.description || ''}</p>
-          </div>`
+            <p>${proj.description || ''}</p>`
+          
+          // 显示项目经历亮点
+          if (proj.highlights && proj.highlights.length > 0) {
+            html += `<div class="highlights-section">
+              <div class="highlights-title">⭐ 项目亮点</div>
+              <ul class="highlights-list">`
+            proj.highlights.forEach(h => {
+              html += `<li class="highlight-item">${h.highlight || ''}</li>`
+            })
+            html += `</ul></div>`
+          }
+          
+          html += `</div>`
       })
   }
 
@@ -264,6 +295,31 @@ const formatResumeToHtml = (resume: ResumeDetailResponse) => {
             <p>${edu.degree || ''} - ${edu.major || ''}</p>
             <p class="date">${edu.startTime || ''} ~ ${edu.endTime || ''}</p>
           </div>`
+      })
+  }
+
+  // 显示技能
+  if (resume.skills && resume.skills.length > 0) {
+      html += `<h3>专业技能</h3>`
+      resume.skills.forEach(skill => {
+          html += `<div class="skill-item">
+            <p><strong>${skill.name || ''}</strong>`
+          if (skill.level) {
+            html += ` - <span class="skill-level">${skill.level}</span>`
+          }
+          html += `</p>`
+          
+          // 显示技能亮点
+          if (skill.highlights && skill.highlights.length > 0) {
+            html += `<div class="highlights-section">
+              <ul class="highlights-list">`
+            skill.highlights.forEach(h => {
+              html += `<li class="highlight-item">${h.highlight || ''}</li>`
+            })
+            html += `</ul></div>`
+          }
+          
+          html += `</div>`
       })
   }
 
@@ -537,6 +593,31 @@ const handleDownload = async () => {
 .header-section {
   text-align: center;
   margin-bottom: 30px;
+  position: relative;
+
+  .header-back {
+    position: absolute;
+    left: 0;
+    top: 0;
+    
+    .back-btn {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 0.95rem;
+      color: var(--text-secondary);
+      transition: all 0.3s ease;
+      
+      &:hover {
+        color: var(--primary-color);
+        transform: translateX(-4px);
+      }
+      
+      .el-icon {
+        font-size: 1rem;
+      }
+    }
+  }
 
   .page-title {
     font-size: 1.75rem;
@@ -616,6 +697,106 @@ const handleDownload = async () => {
 
   :deep(p) {
     margin-bottom: 0.8em;
+  }
+
+  // 简历预览样式
+  :deep(.resume-preview) {
+    h2 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--text-main);
+      margin-bottom: 0.5rem;
+    }
+
+    h3 {
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: var(--text-main);
+      margin-top: 1.5rem;
+      margin-bottom: 1rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 2px solid #e2e8f0;
+    }
+
+    .date {
+      color: var(--text-secondary);
+      font-size: 0.9rem;
+      font-style: italic;
+    }
+
+    .exp-item,
+    .proj-item,
+    .edu-item,
+    .skill-item {
+      margin-bottom: 1.5rem;
+      padding: 1rem;
+      background: #fafbfc;
+      border-radius: 8px;
+      border-left: 3px solid #e2e8f0;
+      transition: all 0.3s ease;
+
+      &:hover {
+        background: #f1f5f9;
+        border-left-color: var(--primary-color);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+      }
+    }
+
+    .skill-level {
+      display: inline-block;
+      padding: 2px 8px;
+      background: #e0f2fe;
+      color: #0369a1;
+      border-radius: 4px;
+      font-size: 0.85rem;
+      font-weight: 500;
+    }
+
+    // 亮点样式
+    .highlights-section {
+      margin-top: 0.8rem;
+      padding: 0.8rem;
+      background: linear-gradient(135deg, #fff7ed 0%, #ffffff 100%);
+      border-radius: 6px;
+      border: 1px solid #fed7aa;
+    }
+
+    .highlights-title {
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: #ea580c;
+      margin-bottom: 0.5rem;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .highlights-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+
+      .highlight-item {
+        position: relative;
+        padding-left: 1.2rem;
+        margin-bottom: 0.5rem;
+        line-height: 1.6;
+        color: var(--text-main);
+        font-size: 0.9rem;
+
+        &:before {
+          content: '◆';
+          position: absolute;
+          left: 0;
+          color: #fb923c;
+          font-size: 0.8rem;
+        }
+
+        &:last-child {
+          margin-bottom: 0;
+        }
+      }
+    }
   }
 }
 
