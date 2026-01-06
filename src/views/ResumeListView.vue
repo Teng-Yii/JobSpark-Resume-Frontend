@@ -22,7 +22,7 @@
 
     <div v-loading="loading" class="list-content">
       <div v-if="resumeList && resumeList.length > 0" class="resume-grid">
-        <el-card v-for="resume in resumeList" :key="resume.id" class="resume-card" shadow="hover">
+        <el-card v-for="resume in resumeList" :key="resume.resumeId" class="resume-card" shadow="hover">
           <div class="card-header">
             <div class="user-info">
               <el-avatar :size="50" :src="resume.avatarUrl || defaultAvatar" icon="UserFilled" />
@@ -32,7 +32,7 @@
               </div>
             </div>
             <div class="actions">
-              <el-button type="primary" plain size="small" @click="handleOptimize(resume.id)">
+              <el-button type="primary" plain size="small" @click="handleOptimize(resume.resumeId)">
                 优化解析
               </el-button>
             </div>
@@ -114,9 +114,15 @@ const handleLogout = () => {
     })
 }
 
-const handleOptimize = (id: number) => {
-  resumeStore.setResumeId(id.toString())
-  router.push(`/resume/optimize?id=${id}`)
+const handleOptimize = (resumeId: string) => {
+  // 从列表中找到对应的简历详情
+  const resume = resumeList.value.find(r => r.resumeId === resumeId)
+  if (resume) {
+    // 存储简历ID和完整的简历详情
+    resumeStore.setResumeId(resumeId)
+    resumeStore.setCurrentResumeDetail(resume)
+  }
+  router.push(`/resume/optimize?id=${resumeId}`)
 }
 
 onMounted(() => {

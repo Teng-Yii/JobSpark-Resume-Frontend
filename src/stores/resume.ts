@@ -6,6 +6,7 @@ import { getResumeList } from '@/api/resume'
 export const useResumeStore = defineStore('resume', () => {
   const currentResumeId = ref<string | null>(null)
   const currentResumeContent = ref<string | null>(null) // 可以先存一下解析后的内容，如果有的话
+  const currentResumeDetail = ref<ResumeDetailResponse | null>(null) // 存储完整的简历详情
   const optimizationResult = ref<ResumeOptimizedResponse | null>(null)
   const resumeList = ref<ResumeDetailResponse[]>([])
 
@@ -66,6 +67,10 @@ export const useResumeStore = defineStore('resume', () => {
     currentResumeContent.value = content
   }
 
+  function setCurrentResumeDetail(detail: ResumeDetailResponse) {
+    currentResumeDetail.value = detail
+  }
+
   function setOptimizationResult(result: ResumeOptimizedResponse) {
     optimizationResult.value = result
   }
@@ -73,6 +78,7 @@ export const useResumeStore = defineStore('resume', () => {
   function clearResume() {
     currentResumeId.value = null
     currentResumeContent.value = null
+    currentResumeDetail.value = null
     optimizationResult.value = null
   }
 
@@ -89,11 +95,13 @@ export const useResumeStore = defineStore('resume', () => {
   return {
     currentResumeId,
     currentResumeContent,
+    currentResumeDetail,
     optimizationResult,
     parsedSuggestion,
     resumeList,
     setResumeId,
     setResumeContent,
+    setCurrentResumeDetail,
     setOptimizationResult,
     clearResume,
     fetchResumeList

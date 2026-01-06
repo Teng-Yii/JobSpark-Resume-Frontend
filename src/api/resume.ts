@@ -108,7 +108,7 @@ export interface SkillBO {
 }
 
 export interface ResumeDetailResponse {
-  id: number // 简历ID
+  resumeId: string // 简历ID
   name: string // 姓名
   title: string // 求职标题/岗位意向
   avatarUrl: string // 头像URL

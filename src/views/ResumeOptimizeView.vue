@@ -335,16 +335,23 @@ onMounted(async () => {
     loading.value = true
     resumeStore.setResumeId(queryId)
     try {
-      // 检查 store 中是否有列表数据，如果没有则拉取
-      if (!resumeStore.resumeList || resumeStore.resumeList.length === 0) {
-        await resumeStore.fetchResumeList()
-      }
-
-      const foundResume = resumeStore.resumeList.find(r => r.id.toString() === queryId)
-      if (foundResume) {
-        resumeContent.value = formatResumeToHtml(foundResume)
+      // 先检查 store 中是否已有当前简历的详情数据
+      if (resumeStore.currentResumeDetail && resumeStore.currentResumeDetail.resumeId === queryId) {
+        // 直接使用 store 中的数据
+        resumeContent.value = formatResumeToHtml(resumeStore.currentResumeDetail)
       } else {
-        ElMessage.warning('未找到指定简历信息')
+        // 如果 store 中没有，则从列表中查找
+        if (!resumeStore.resumeList || resumeStore.resumeList.length === 0) {
+          await resumeStore.fetchResumeList()
+        }
+
+        const foundResume = resumeStore.resumeList.find(r => r.resumeId === queryId)
+        if (foundResume) {
+          resumeStore.setCurrentResumeDetail(foundResume)
+          resumeContent.value = formatResumeToHtml(foundResume)
+        } else {
+          ElMessage.warning('未找到指定简历信息')
+        }
       }
     } catch (e) {
       ElMessage.error('加载简历信息失败')
