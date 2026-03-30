@@ -82,9 +82,9 @@ export const useResumeStore = defineStore('resume', () => {
     optimizationResult.value = null
   }
 
-  async function fetchResumeList() {
+  async function fetchResumeList(cvType?: string) {
     try {
-      const response = await getResumeList()
+      const response = await getResumeList(cvType)
       resumeList.value = response
     } catch (error) {
       console.error('Failed to fetch resume list:', error)

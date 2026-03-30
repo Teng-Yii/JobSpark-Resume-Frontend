@@ -7,7 +7,15 @@
       </div>
       
       <div class="upload-card card-shadow">
-        <div class="upload-area-wrapper">
+        <div class="mode-selector">
+          <el-radio-group v-model="mode" size="large">
+            <el-radio-button label="upload">上传新简历</el-radio-button>
+            <el-radio-button label="existing">录入已有简历</el-radio-button>
+          </el-radio-group>
+        </div>
+
+        <!-- 上传新简历模式 -->
+        <div v-if="mode === 'upload'" class="upload-area-wrapper">
           <el-upload
             class="upload-dragger-custom"
             drag
@@ -38,9 +46,27 @@
             </div>
           </el-upload>
         </div>
+
+        <!-- 录入已有简历模式 -->
+        <div v-if="mode === 'existing'" class="existing-resume-wrapper">
+          <div class="input-section">
+            <h3>录入已有简历到向量数据库</h3>
+            <p>输入已有简历的ID，将其内容存入向量数据库</p>
+            <el-input
+              v-model="resumeId"
+              placeholder="请输入简历ID"
+              size="large"
+              class="resume-id-input"
+            >
+              <template #prefix>
+                <el-icon><Document /></el-icon>
+              </template>
+            </el-input>
+          </div>
+        </div>
         
         <!-- Progress Bar -->
-        <div v-if="uploadStatus !== 'IDLE'" class="progress-section">
+        <div v-if="uploadStatus !== 'IDLE' && mode === 'upload'" class="progress-section">
           <div class="progress-info">
             <span class="status-text">系统状态: {{ statusText }}</span>
             <span class="progress-text">{{ Math.floor(progress) }}%</span>
@@ -54,27 +80,46 @@
         </div>
 
         <div class="card-footer">
-          <el-button
-            v-if="uploadStatus !== 'COMPLETED'"
-            type="primary"
-            size="large"
-            @click="handleUpload"
-            :loading="loading"
-            :disabled="!selectedFile || uploadStatus === 'PROCESSING' || uploadStatus === 'STORING'"
-            class="action-button"
-          >
-            {{ uploadStatus === 'FAILED' ? '重新上传' : '开始录入模板' }}
-          </el-button>
-          
-          <el-button
-            v-else
-            type="success"
-            size="large"
-            @click="resetUpload"
-            class="action-button"
-          >
-            继续录入下一个
-          </el-button>
+          <div class="action-buttons">
+            <el-button
+              type="default"
+              size="large"
+              @click="goToHome"
+              class="action-button"
+            >
+              返回主页面
+            </el-button>
+            <el-button
+              v-if="mode === 'upload' && uploadStatus !== 'COMPLETED'"
+              type="primary"
+              size="large"
+              @click="handleUpload"
+              :loading="loading"
+              :disabled="!selectedFile || uploadStatus === 'PROCESSING' || uploadStatus === 'STORING'"
+              class="action-button"
+            >
+              {{ uploadStatus === 'FAILED' ? '重新上传' : '开始录入模板' }}
+            </el-button>
+            <el-button
+              v-if="mode === 'existing' && resumeId"
+              type="primary"
+              size="large"
+              @click="handleStoreExistingResume"
+              :loading="loading"
+              class="action-button"
+            >
+              录入到向量库
+            </el-button>
+            <el-button
+              v-if="mode === 'upload' && uploadStatus === 'COMPLETED'"
+              type="success"
+              size="large"
+              @click="resetUpload"
+              class="action-button"
+            >
+              继续录入下一个
+            </el-button>
+          </div>
         </div>
       </div>
     </div>
@@ -83,12 +128,17 @@
 
 <script setup lang="ts">
 import { ref, computed, onUnmounted } from 'vue'
-import { UploadFilled, DocumentChecked } from '@element-plus/icons-vue'
+import { useRouter } from 'vue-router'
+import { useUserStore } from '@/stores/user'
+import { UploadFilled, DocumentChecked, Document } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import type { UploadFile } from 'element-plus'
 import { uploadResume, getTaskStatus, storeEmbedding } from '@/api/resume'
 
+const router = useRouter()
+const mode = ref<'upload' | 'existing'>('upload')
 const selectedFile = ref<File | null>(null)
+const resumeId = ref('')
 const loading = ref(false)
 const progress = ref(0)
 const targetProgress = ref(0) // 目标进度（后端返回的最新有效进度）
@@ -155,6 +205,41 @@ const resetUpload = () => {
     resetState()
 }
 
+const handleStoreExistingResume = async () => {
+    if (!resumeId.value) {
+        ElMessage.error('请输入简历ID')
+        return
+    }
+    
+    loading.value = true
+    currentStatusMessage.value = '正在将简历录入向量数据库...'
+    
+    try {
+        const res = await storeEmbedding(resumeId.value)
+        // 兼容 boolean 直接返回 true，或者对象返回 success: true
+        const isSuccess = typeof res === 'boolean' ? res : (res && res.success)
+        
+        if (isSuccess) {
+            ElMessage.success('简历已成功录入向量数据库！')
+            resumeId.value = ''
+        } else {
+            // 兼容 res 为 false，或者对象返回 message
+            const errorMsg = (typeof res === 'object' && res?.message) ? res.message : '录入失败'
+            throw new Error(errorMsg)
+        }
+    } catch (error: any) {
+        console.error('Embedding error:', error)
+        ElMessage.error(error.message || '录入失败：向量存储错误')
+    } finally {
+        loading.value = false
+        currentStatusMessage.value = ''
+    }
+}
+
+const goToHome = () => {
+    router.push('/resume/list')
+}
+
 // 缓动动画函数
 const updateProgress = () => {
   if (progress.value < targetProgress.value) {
@@ -178,6 +263,13 @@ const handleUpload = async () => {
   
   const formData = new FormData()
   formData.append('file', selectedFile.value)
+  // 添加简历类型参数，excellent表示优秀参考简历
+  formData.append('cvType', 'excellent')
+  // 添加用户ID参数
+  const userStore = useUserStore()
+  if (userStore.userInfo?.id) {
+    formData.append('userId', userStore.userInfo.id.toString())
+  }
 
   try {
     const response = await uploadResume(formData)
@@ -309,6 +401,38 @@ onUnmounted(() => {
   }
 }
 
+.mode-selector {
+  margin-bottom: 32px;
+  display: flex;
+  justify-content: center;
+}
+
+.existing-resume-wrapper {
+  margin-bottom: 32px;
+  
+  .input-section {
+    text-align: center;
+    
+    h3 {
+      font-size: 20px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 8px;
+    }
+    
+    p {
+      font-size: 14px;
+      color: var(--text-secondary);
+      margin-bottom: 24px;
+    }
+    
+    .resume-id-input {
+      max-width: 400px;
+      margin: 0 auto;
+    }
+  }
+}
+
 .upload-area-wrapper {
   margin-bottom: 32px;
 }
@@ -436,6 +560,13 @@ onUnmounted(() => {
   margin-top: 32px;
   display: flex;
   justify-content: center;
+  
+  .action-buttons {
+    display: flex;
+    gap: 16px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
   
   .action-button {
     min-width: 200px;

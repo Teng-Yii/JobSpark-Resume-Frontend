@@ -104,20 +104,39 @@ export interface SkillBO {
   name?: string
   level?: string
   category?: string
+  sortOrder?: number
   highlights?: HighlightBO[] // 技能亮点
+}
+
+export interface SocialLinkBO {
+  label?: string
+  url?: string
+  sortOrder?: number
+}
+
+export interface CertificateBO {
+  name?: string
+  issuer?: string
+  issueDate?: string
+  expiryDate?: string
+  sortOrder?: number
 }
 
 export interface ResumeDetailResponse {
   resumeId: string // 简历ID
+  userId: number // 用户ID
   name: string // 姓名
+  birthDate: string // 出生日期
   title: string // 求职标题/岗位意向
   avatarUrl: string // 头像URL
   summary: string // 个人简介
   contact: ContactBO
+  socialLinks: SocialLinkBO[]
   educations: EducationBO[]
   experiences: ExperienceBO[]
   projects: ProjectBO[]
   skills: SkillBO[]
+  certificates: CertificateBO[]
 }
 
 // 简历上传
@@ -224,9 +243,18 @@ export function generateOptimizedFile(data: ResumeOptimizedDownloadRequest) {
 }
 
 // 获取简历列表
-export function getResumeList() {
+export function getResumeList(cvType?: string) {
   return request<any, ResumeDetailResponse[]>({
     url: '/resumes/list',
+    method: 'get',
+    params: cvType ? { cvType } : undefined
+  })
+}
+
+// 获取简历详情
+export function getResume(resumeId: string) {
+  return request<any, ResumeDetailResponse>({
+    url: `/resumes/${resumeId}`,
     method: 'get'
   })
 }

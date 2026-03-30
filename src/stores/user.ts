@@ -27,8 +27,14 @@ export const useUserStore = defineStore('user', () => {
       const tokenStr = (res as any).accessToken || (res as any).token || (res as any).data?.accessToken || (res as any).data?.token
       if (tokenStr) {
         setToken(tokenStr)
-        // 登录成功后获取用户信息
-        await fetchUserInfo()
+        // 登录成功后获取用户信息，但捕获可能的401错误
+        try {
+          await fetchUserInfo()
+        } catch (userInfoError: any) {
+          // 如果获取用户信息失败（可能是token问题），不抛出错误
+          // 让登录仍然被视为成功，用户信息可以在后续页面加载
+          console.warn('获取用户信息失败，但不影响登录:', userInfoError)
+        }
       } else {
         // 登录必须返回 token，否则视为服务器异常
         throw new Error('登录失败，服务器未返回身份验证信息')
@@ -47,7 +53,12 @@ export const useUserStore = defineStore('user', () => {
       if (tokenStr) {
         setToken(tokenStr)
         // 注册成功后获取用户信息
-        await fetchUserInfo()
+        try {
+          await fetchUserInfo()
+        } catch (userInfoError: any) {
+          // 如果获取用户信息失败，不抛出错误
+          console.warn('获取用户信息失败，但不影响注册:', userInfoError)
+        }
       }
       // 如果没有返回token，不抛出错误，由调用方决定是跳转到登录页还是首页
       return res
@@ -84,6 +95,7 @@ export const useUserStore = defineStore('user', () => {
       console.error('Fetch user info failed:', error)
       // 如果获取用户信息失败（如token失效），可能需要清理状态
       // 这里暂不自动登出，由 request.ts 拦截器处理 401
+      throw error
     }
   }
 

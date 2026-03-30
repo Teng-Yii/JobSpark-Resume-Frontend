@@ -52,6 +52,12 @@ const router = createRouter({
       name: 'resume-optimize',
       component: () => import('@/views/ResumeOptimizeView.vue'),
       meta: { requiresAuth: true }
+    },
+    {
+      path: '/resume/detail',
+      name: 'resume-detail',
+      component: () => import('@/views/ResumeDetailView.vue'),
+      meta: { requiresAuth: true }
     }
   ]
 })

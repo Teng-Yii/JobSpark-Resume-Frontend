@@ -254,6 +254,12 @@ const handleUpload = async () => {
   
   const formData = new FormData()
   formData.append('file', selectedFile.value)
+  // 添加简历类型参数，upload表示用户上传简历
+  formData.append('cvType', 'upload')
+  // 添加用户ID参数
+  if (userStore.userInfo?.id) {
+    formData.append('userId', userStore.userInfo.id.toString())
+  }
   
   try {
     const res = await uploadResume(formData)
