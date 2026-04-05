@@ -95,9 +95,11 @@ import { ElMessage } from 'element-plus'
 import type { UploadFile } from 'element-plus'
 import { uploadResume, getTaskStatus } from '@/api/resume'
 import { useResumeStore } from '@/stores/resume'
+import { useUserStore } from '@/stores/user'
 
 const router = useRouter()
 const resumeStore = useResumeStore()
+const userStore = useUserStore()
 
 const selectedFile = ref<File | null>(null)
 const loading = ref(false)
