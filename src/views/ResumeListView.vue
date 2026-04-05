@@ -44,6 +44,9 @@
                   <el-button type="primary" plain size="small" @click="handleOptimize(resume.resumeId)">
                     优化解析
                   </el-button>
+                  <el-button type="success" plain size="small" @click="handleStartInterview(resume)">
+                    模拟面试
+                  </el-button>
                 </div>
               </div>
               <div class="card-content">
@@ -210,6 +213,15 @@ const handleOptimize = (resumeId: string) => {
 
 const handleExcellentResume = () => {
   router.push('/excellent-resume')
+}
+
+const handleStartInterview = (resume: ResumeDetailResponse) => {
+  // 存储简历ID和完整的简历详情
+  resumeStore.setResumeId(resume.resumeId)
+  resumeStore.setCurrentResumeDetail(resume)
+  
+  // 跳转到模拟面试页面
+  router.push(`/interview?resumeId=${resume.resumeId}`)
 }
 
 onMounted(() => {

@@ -58,6 +58,12 @@ const router = createRouter({
       name: 'resume-detail',
       component: () => import('@/views/ResumeDetailView.vue'),
       meta: { requiresAuth: true }
+    },
+    {
+      path: '/interview',
+      name: 'interview',
+      component: () => import('@/views/InterviewView.vue'),
+      meta: { requiresAuth: true }
     }
   ]
 })
