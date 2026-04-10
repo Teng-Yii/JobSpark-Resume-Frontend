@@ -259,7 +259,7 @@ const loading = ref(false)
 const interviewStarted = ref(false)
 const interviewFinished = ref(false)
 const waitingForResponse = ref(false)
-const sessionId = ref<number | null>(null)
+const sessionId = ref<string | null>(null)
 const userAnswer = ref('')
 const currentSession = ref<InterviewSessionBO | null>(null)
 const currentQuestion = ref('')
@@ -317,6 +317,54 @@ const getScoreStatus = (score: number) => {
   return 'exception'
 }
 
+// 处理面试响应数据
+const handleInterviewResponse = (interviewData: InterviewResponseBO) => {
+  console.log('处理面试响应:', interviewData)
+
+  interviewState.value = interviewData.interviewState
+
+  if (interviewData.responseType === 'SESSION' && interviewData.session) {
+    // 初始化会话
+    console.log('初始化会话:', interviewData.session)
+    currentSession.value = interviewData.session
+    currentQuestion.value = interviewData.session.currentQuestion
+    sessionId.value = interviewData.session.sessionId
+    console.log('会话已设置, sessionId:', sessionId.value)
+  } else if (interviewData.responseType === 'PROGRESS' && interviewData.progress) {
+    // 继续面试 - 更新会话信息
+    console.log('继续面试:', interviewData.progress)
+    if (currentSession.value) {
+      currentSession.value = {
+        ...currentSession.value,
+        sessionId: interviewData.progress.sessionId,
+        currentStageIndex: interviewData.progress.currentStageIndex,
+        currentStageName: interviewData.progress.currentStageName,
+        currentQuestionIndex: interviewData.progress.currentQuestionIndex,
+        currentQuestion: interviewData.progress.currentQuestion,
+        totalPlannedQuestions: interviewData.progress.progress?.totalQuestions || currentSession.value.totalPlannedQuestions
+      }
+    }
+    currentQuestion.value = interviewData.progress.currentQuestion
+
+    // 清空用户回答
+    userAnswer.value = ''
+  } else if (interviewData.responseType === 'COMPLETE' && interviewData.complete) {
+    // 面试完成
+    console.log('面试完成:', interviewData.complete)
+    interviewFinished.value = true
+    interviewResult.value = interviewData.complete
+    interviewState.value = 'COMPLETED'
+
+    // 如果有问答历史，同步更新
+    if (interviewData.complete.qaHistory && interviewData.complete.qaHistory.length > 0) {
+      qaHistory.value = interviewData.complete.qaHistory.map(qa => ({
+        question: qa.question,
+        answer: qa.answer
+      }))
+    }
+  }
+}
+
 // 开始面试
 const startInterview = async () => {
   if (!resumeId.value) {
@@ -325,32 +373,31 @@ const startInterview = async () => {
   }
 
   loading.value = true
+  console.log('开始面试, resumeId:', resumeId.value)
   try {
     const requestData: InterviewSimulationRequest = {
       resumeId: resumeId.value,
       jobDescription: setupForm.value.jobDescription || undefined,
       userMessage: setupForm.value.userMessage || undefined
     }
+    console.log('请求数据:', requestData)
 
-    const response = await startInterviewApi(requestData)
-    
-    if (response.success && response.data) {
-      const interviewData = response.data
-      
-      sessionId.value = interviewData.sessionId
+    const interviewData = await startInterviewApi(requestData)
+    console.log('API响应:', interviewData)
+
+    // 直接处理返回的 InterviewResponseBO 数据
+    if (interviewData && interviewData.responseType) {
+      console.log('响应成功, data:', interviewData)
+      handleInterviewResponse(interviewData)
       interviewStarted.value = true
-      interviewState.value = interviewData.interviewState
-      
-      if (interviewData.responseType === 'SESSION' && interviewData.session) {
-        currentSession.value = interviewData.session
-        currentQuestion.value = interviewData.session.currentQuestion
-      }
-      
+      console.log('interviewStarted 设置为 true')
       ElMessage.success('面试已开始！')
     } else {
-      ElMessage.error(response.message || '开始面试失败')
+      console.error('响应数据格式不正确:', interviewData)
+      ElMessage.error('开始面试失败：响应数据格式不正确')
     }
   } catch (error: any) {
+    console.error('请求异常:', error)
     ElMessage.error(error.message || '开始面试失败')
   } finally {
     loading.value = false
@@ -362,6 +409,7 @@ const submitAnswer = async () => {
   if (!sessionId.value || !userAnswer.value.trim()) return
 
   waitingForResponse.value = true
+  console.log('提交回答, sessionId:', sessionId.value, '类型:', typeof sessionId.value)
   try {
     // 记录问答历史
     qaHistory.value.push({
@@ -373,35 +421,14 @@ const submitAnswer = async () => {
       userAnswer: userAnswer.value
     }
 
-    const response = await continueInterviewApi(sessionId.value, requestData)
-    
-    if (response.success && response.data) {
-      const interviewData = response.data
-      
-      interviewState.value = interviewData.interviewState
-      
-      if (interviewData.responseType === 'PROGRESS' && interviewData.progress) {
-        currentSession.value = {
-          sessionId: interviewData.progress.sessionId,
-          currentStageIndex: interviewData.progress.currentStageIndex,
-          currentStageName: interviewData.progress.currentStageName,
-          currentQuestionIndex: interviewData.progress.currentQuestionIndex,
-          currentQuestion: interviewData.progress.currentQuestion,
-          totalPlannedQuestions: interviewData.progress.progress.totalQuestions,
-          stageInfos: currentSession.value?.stageInfos || []
-        }
-        currentQuestion.value = interviewData.progress.currentQuestion
-        
-        // 清空用户回答
-        userAnswer.value = ''
-      } else if (interviewData.responseType === 'COMPLETE' && interviewData.complete) {
-        // 面试完成
-        interviewFinished.value = true
-        interviewResult.value = interviewData.complete
-        interviewState.value = 'COMPLETED'
-      }
+    console.log('调用 continueInterviewApi, sessionId:', sessionId.value)
+    const interviewData = await continueInterviewApi(sessionId.value, requestData)
+    console.log('continueInterviewApi 响应:', interviewData)
+
+    if (interviewData && interviewData.responseType) {
+      handleInterviewResponse(interviewData)
     } else {
-      ElMessage.error(response.message || '提交回答失败')
+      ElMessage.error('提交回答失败：响应数据格式不正确')
     }
   } catch (error: any) {
     ElMessage.error(error.message || '提交回答失败')
@@ -420,32 +447,12 @@ const skipQuestion = async () => {
       userAnswer: '我跳过这个问题，请继续下一个问题。'
     }
 
-    const response = await continueInterviewApi(sessionId.value, requestData)
-    
-    if (response.success && response.data) {
-      const interviewData = response.data
-      
-      interviewState.value = interviewData.interviewState
-      
-      if (interviewData.responseType === 'PROGRESS' && interviewData.progress) {
-        currentSession.value = {
-          sessionId: interviewData.progress.sessionId,
-          currentStageIndex: interviewData.progress.currentStageIndex,
-          currentStageName: interviewData.progress.currentStageName,
-          currentQuestionIndex: interviewData.progress.currentQuestionIndex,
-          currentQuestion: interviewData.progress.currentQuestion,
-          totalPlannedQuestions: interviewData.progress.progress.totalQuestions,
-          stageInfos: currentSession.value?.stageInfos || []
-        }
-        currentQuestion.value = interviewData.progress.currentQuestion
-      } else if (interviewData.responseType === 'COMPLETE' && interviewData.complete) {
-        // 面试完成
-        interviewFinished.value = true
-        interviewResult.value = interviewData.complete
-        interviewState.value = 'COMPLETED'
-      }
+    const interviewData = await continueInterviewApi(sessionId.value, requestData)
+
+    if (interviewData && interviewData.responseType) {
+      handleInterviewResponse(interviewData)
     } else {
-      ElMessage.error(response.message || '跳过问题失败')
+      ElMessage.error('跳过问题失败：响应数据格式不正确')
     }
   } catch (error: any) {
     ElMessage.error(error.message || '跳过问题失败')
@@ -458,23 +465,20 @@ const skipQuestion = async () => {
 const finishInterview = async () => {
   if (!sessionId.value) return
 
+  waitingForResponse.value = true
   try {
-    const response = await finishInterviewApi(sessionId.value)
-    
-    if (response.success && response.data) {
-      const interviewData = response.data
-      
-      if (interviewData.responseType === 'COMPLETE' && interviewData.complete) {
-        interviewFinished.value = true
-        interviewResult.value = interviewData.complete
-        interviewState.value = 'COMPLETED'
-        ElMessage.success('面试已结束')
-      }
+    const interviewData = await finishInterviewApi(sessionId.value)
+
+    if (interviewData && interviewData.responseType) {
+      handleInterviewResponse(interviewData)
+      ElMessage.success('面试已结束')
     } else {
-      ElMessage.error(response.message || '结束面试失败')
+      ElMessage.error('结束面试失败：响应数据格式不正确')
     }
   } catch (error: any) {
     ElMessage.error(error.message || '结束面试失败')
+  } finally {
+    waitingForResponse.value = false
   }
 }
 

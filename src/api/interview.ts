@@ -23,7 +23,7 @@ export interface ApiResponse<T> {
 
 // 面试会话信息
 export interface InterviewSessionBO {
-  sessionId: number
+  sessionId: string
   currentStageIndex: number
   currentStageName: string
   currentQuestionIndex: number
@@ -43,7 +43,7 @@ export interface StageInfo {
 
 // 面试进度信息
 export interface InterviewProgressBO {
-  sessionId: number
+  sessionId: string
   currentQuestionIndex: number
   currentStageIndex: number
   currentStageName: string
@@ -64,7 +64,7 @@ export interface ProgressInfo {
 
 // 面试完成信息
 export interface InterviewCompleteBO {
-  sessionId: number
+  sessionId: string
   finished: boolean
   totalScore: number
   finalFeedback: string
@@ -91,7 +91,7 @@ export interface QARecord {
 // 面试响应
 export interface InterviewResponseBO {
   responseType: 'SESSION' | 'PROGRESS' | 'COMPLETE' | 'ERROR'
-  sessionId: number
+  sessionId: string
   interviewState: 'INITIALIZING' | 'IN_PROGRESS' | 'COMPLETED' | 'PAUSED' | 'ERROR'
   session?: InterviewSessionBO
   progress?: InterviewProgressBO
@@ -101,7 +101,7 @@ export interface InterviewResponseBO {
 
 // 开始面试
 export function startInterview(data: InterviewSimulationRequest) {
-  return request<any, ApiResponse<InterviewResponseBO>>({
+  return request<any, InterviewResponseBO>({
     url: '/interviews/sessions',
     method: 'post',
     data
@@ -109,16 +109,16 @@ export function startInterview(data: InterviewSimulationRequest) {
 }
 
 // 结束面试
-export function finishInterview(sessionId: number) {
-  return request<any, ApiResponse<InterviewResponseBO>>({
+export function finishInterview(sessionId: string) {
+  return request<any, InterviewResponseBO>({
     url: `/interviews/sessions/${sessionId}/finish`,
     method: 'post'
   })
 }
 
 // 继续面试
-export function continueInterview(sessionId: number, data: InterviewContinueRequest) {
-  return request<any, ApiResponse<InterviewResponseBO>>({
+export function continueInterview(sessionId: string, data: InterviewContinueRequest) {
+  return request<any, InterviewResponseBO>({
     url: `/interviews/sessions/${sessionId}/continue`,
     method: 'post',
     data
@@ -126,8 +126,8 @@ export function continueInterview(sessionId: number, data: InterviewContinueRequ
 }
 
 // 获取面试状态
-export function getSessionStatus(sessionId: number) {
-  return request<any, ApiResponse<InterviewResponseBO>>({
+export function getSessionStatus(sessionId: string) {
+  return request<any, InterviewResponseBO>({
     url: `/interviews/sessions/${sessionId}/status`,
     method: 'get'
   })
